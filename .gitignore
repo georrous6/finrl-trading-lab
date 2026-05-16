@@ -1,5 +1,5 @@
 # Custom config
-#results/
+finrl_env/
 
 # remove DS_Store
 **/.DS_Store

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from argparse import ArgumentParser
-from typing import List
 
 from finrl.config import ALPACA_API_BASE_URL
 from finrl.config import DATA_SAVE_DIR
@@ -17,17 +16,8 @@ from finrl.config import TRADE_START_DATE
 from finrl.config import TRAIN_END_DATE
 from finrl.config import TRAIN_START_DATE
 from finrl.config import TRAINED_MODEL_DIR
-from finrl.config_tickers import DOW_30_TICKER
-from finrl.meta.env_stock_trading.env_stocktrading_np import StockTradingEnv
-
-# construct environment
-
-# try:
-#     from finrl.config_private import ALPACA_API_KEY, ALPACA_API_SECRET
-# except ImportError:
-#     raise FileNotFoundError(
-#         "Please set your own ALPACA_API_KEY and ALPACA_API_SECRET in config_private.py"
-#     )
+from finrl.config_tickers import SINGLE_TICKER
+from finrl.meta.env_cryptocurrency_trading.env_multiple_crypto import CryptoTradingEnv
 
 
 def build_parser():
@@ -37,8 +27,37 @@ def build_parser():
         dest="mode",
         help="start mode, train, download_data" " backtest",
         metavar="MODE",
-        default="train",
+        required=True,
     )
+    parser.add_argument(
+        "--data_source",
+        dest="data_source",
+        help="data source, yahoofinance, joinquant, alpaca",
+        metavar="DATA_SOURCE",
+        default="yahoofinance",
+    )
+    parser.add_argument(
+        "--time_interval",
+        dest="time_interval",
+        help="time interval, 1D, 1H, 1M",
+        metavar="TIME_INTERVAL",
+        default="1D",
+    )
+    parser.add_argument(
+        "--drl_lib",
+        dest="drl_lib",
+        help="drl library, elegantrl, rllib",
+        metavar="DRL_LIB",
+        default="elegantrl",
+    )
+    parser.add_argument(
+        "--model_name",
+        dest="model_name",
+        help="model name, a2c, ppo, ddpg, td3, sac, erl",
+        metavar="MODEL_NAME",
+        default="ppo",
+    )
+
     return parser
 
 
@@ -55,10 +74,10 @@ def main() -> int:
         [DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR]
     )
 
+    env = CryptoTradingEnv
+
     if options.mode == "train":
         from finrl import train
-
-        env = StockTradingEnv
 
         # demo for elegantrl
         kwargs = (
@@ -67,22 +86,21 @@ def main() -> int:
         train(
             start_date=TRAIN_START_DATE,
             end_date=TRAIN_END_DATE,
-            ticker_list=DOW_30_TICKER,
+            ticker_list=SINGLE_TICKER,
             data_source="yahoofinance",
             time_interval="1D",
             technical_indicator_list=INDICATORS,
-            drl_lib="elegantrl",
+            drl_lib="stable_baselines3",
             env=env,
             model_name="ppo",
             cwd="./test_ppo",
             erl_params=ERL_PARAMS,
             break_step=1e5,
+            if_vix=True,
             kwargs=kwargs,
         )
     elif options.mode == "test":
         from finrl import test
-
-        env = StockTradingEnv
 
         # demo for elegantrl
         # in current meta, with respect yahoofinance, kwargs is {}. For other data sources, such as joinquant, kwargs is not empty
@@ -91,7 +109,7 @@ def main() -> int:
         account_value_erl = test(  # noqa
             start_date=TEST_START_DATE,
             end_date=TEST_END_DATE,
-            ticker_list=DOW_30_TICKER,
+            ticker_list=SINGLE_TICKER,
             data_source="yahoofinance",
             time_interval="1D",
             technical_indicator_list=INDICATORS,
@@ -111,12 +129,12 @@ def main() -> int:
             raise FileNotFoundError(
                 "Please set your own ALPACA_API_KEY and ALPACA_API_SECRET in config_private.py"
             )
-        env = StockTradingEnv
+
         kwargs = {}
         trade(
             start_date=TRADE_START_DATE,
             end_date=TRADE_END_DATE,
-            ticker_list=DOW_30_TICKER,
+            ticker_list=SINGLE_TICKER,
             data_source="yahoofinance",
             time_interval="1D",
             technical_indicator_list=INDICATORS,
@@ -129,20 +147,13 @@ def main() -> int:
             trade_mode="paper_trading",
             if_vix=True,
             kwargs=kwargs,
-            state_dim=len(DOW_30_TICKER) * (len(INDICATORS) + 3)
-            + 3,  # bug fix: for ppo add dimension of state/observations space =  len(stocks)* len(INDICATORS) + 3+ 3*len(stocks)
-            action_dim=len(
-                DOW_30_TICKER
-            ),  # bug fix: for ppo add dimension of action space = len(stocks)
+            state_dim=len(SINGLE_TICKER) * (len(INDICATORS) + 3) + 3,
+            action_dim=len(SINGLE_TICKER),
         )
     else:
         raise ValueError("Wrong mode.")
     return 0
 
 
-# Users can input the following command in terminal
-# python main.py --mode=train
-# python main.py --mode=test
-# python main.py --mode=trade
 if __name__ == "__main__":
     raise SystemExit(main())
