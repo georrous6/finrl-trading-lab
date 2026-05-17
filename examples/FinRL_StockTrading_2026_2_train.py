@@ -16,12 +16,12 @@ from finrl.agents.stablebaselines3.models import DRLAgent
 from finrl.config import INDICATORS
 from finrl.config import RESULTS_DIR
 from finrl.config import TRAINED_MODEL_DIR
-from finrl.main import check_and_make_directories
+from finrl.main import make_directories
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
 
 # %% Part 1. Prepare directories
 
-check_and_make_directories([TRAINED_MODEL_DIR])
+make_directories([TRAINED_MODEL_DIR])
 
 # %% Part 2. Build environment
 

@@ -58,7 +58,7 @@ fe = FeatureEngineer(
     use_technical_indicator=True,
     tech_indicator_list=INDICATORS,
     use_vix=True,
-    use_turbulence=True,
+    use_turbulence=False,
     user_defined_feature=False,
 )
 

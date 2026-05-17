@@ -1,6 +1,10 @@
 # directory
 from __future__ import annotations
 
+TRAIN_DATA_FILE = "train_data.csv"
+TEST_DATA_FILE = "test_data.csv"
+TRADE_DATA_FILE = "trade_data.csv"
+
 DATA_SAVE_DIR = "datasets"
 TRAINED_MODEL_DIR = "trained_models"
 TENSORBOARD_LOG_DIR = "tensorboard_log"
@@ -10,10 +14,10 @@ RESULTS_DIR = "results"
 TRAIN_START_DATE = "2025-12-25"
 TRAIN_END_DATE = "2025-12-31"
 
-TEST_START_DATE = "2026-01-01"
+TEST_START_DATE = "2026-03-17"
 TEST_END_DATE = "2026-03-20"
 
-TRADE_START_DATE = "2026-01-01"
+TRADE_START_DATE = "2026-03-17"
 TRADE_END_DATE = "2026-03-20"
 
 # stockstats technical indicator column names
