@@ -11,7 +11,7 @@ TENSORBOARD_LOG_DIR = "tensorboard_log"
 RESULTS_DIR = "results"
 
 # date format: '%Y-%m-%d'
-TRAIN_START_DATE = "2025-12-25"
+TRAIN_START_DATE = "2020-12-01"
 TRAIN_END_DATE = "2025-12-31"
 
 TEST_START_DATE = "2026-03-17"
@@ -41,6 +41,15 @@ PPO_PARAMS = {
     "ent_coef": 0.01,
     "learning_rate": 0.00025,
     "batch_size": 64,
+}
+PPO_TRANSFORMER_KWARGS = {
+    "d_model": 128,
+    "nhead": 4,
+    "num_layers": 2,
+    "dim_feedforward": 256,
+    "dropout": 0.1,
+    "actor_hidden": [64, 64],
+    "critic_hidden": [64, 64],
 }
 DDPG_PARAMS = {"batch_size": 128, "buffer_size": 50000, "learning_rate": 0.001}
 TD3_PARAMS = {"batch_size": 100, "buffer_size": 1000000, "learning_rate": 0.001}

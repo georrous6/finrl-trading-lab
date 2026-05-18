@@ -21,7 +21,9 @@ from finrl.config import TRAIN_DATA_FILE
 from finrl.config import TEST_DATA_FILE
 from finrl.config import TRADE_DATA_FILE
 from finrl.config_tickers import DOW_30_TICKER
-from finrl.meta.env_cryptocurrency_trading.env_multiple_crypto import CryptoTradingEnv
+from finrl.envs.multi_asset import MultiAssetTradingEnv
+from finrl.policies.transformer_policy import TransformerPolicy
+from finrl.download import download_data
 
 
 def build_parser():
@@ -29,8 +31,8 @@ def build_parser():
     parser.add_argument(
         "--mode",
         dest="mode",
-        help="download, training, testing or trading",
-        choices=["download", "train", "test", "trade"],
+        help="training, testing or trading",
+        choices=["train", "test", "trade"],
         metavar="MODE",
         required=True,
     )
@@ -83,51 +85,45 @@ def main() -> int:
     test_data_path = Path(DATA_SAVE_DIR) / TEST_DATA_FILE
     trade_data_path = Path(DATA_SAVE_DIR) / TRADE_DATA_FILE
 
-    if options.mode == "download":
-        from finrl.download import download_data
+    if options.mode == "train":
+        from finrl.train import train
 
-        download_data(
-            train_start_date=TRAIN_START_DATE,
-            train_end_date=TRAIN_END_DATE,
-            test_start_date=TEST_START_DATE,
-            test_end_date=TEST_END_DATE,
-            trade_start_date=TRADE_START_DATE,
-            trade_end_date=TRADE_END_DATE,
+        price_array, tech_array = download_data(
             ticker_list=DOW_30_TICKER,
             tech_indicator_list=INDICATORS,
-            train_output_path=train_data_path,
-            test_output_path=test_data_path,
-            trade_output_path=trade_data_path,
+            start_date=TRAIN_START_DATE,
+            end_date=TRAIN_END_DATE,
+            output_path=train_data_path,
             use_vix=True,
         )
 
-    elif options.mode == "train":
-        from finrl.train import train
-
-        train_data = pd.read_csv(train_data_path)
-        train_data = train_data.set_index(train_data.columns[0])
-        print(f"Training data length: {len(train_data)}")
-        print(train_data.head())
-        return 0
+        env = MultiAssetTradingEnv(
+            price_array=price_array,
+            tech_array=tech_array,
+            initial_capital=1e6,
+            transaction_cost=1e-3,
+            position_limit=0.2,
+            volatility_penalty=0.0,
+        )
 
         kwargs = {}
         train(
             env=env,
-            model_name=options.model_name,
+            model_name="ppo",
+            policy="MlpLstmPolicy",
             cwd="./" + str(options.model_name),
-            agent_params=ERL_PARAMS,
-            total_timesteps=1e6,
-            kwargs=kwargs,
+            agent_params={},
+            total_timesteps=1_000
         )
     elif options.mode == "test":
         from finrl.test import test
 
         kwargs = {}
 
-        account_value_erl = test(
+        test(
             start_date=TEST_START_DATE,
             end_date=TEST_END_DATE,
-            ticker_list=SINGLE_TICKER,
+            ticker_list=DOW_30_TICKER,
             data_source="yahoofinance",
             time_interval="1D",
             technical_indicator_list=INDICATORS,

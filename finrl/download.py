@@ -2,26 +2,27 @@ from __future__ import annotations
 
 import itertools
 import pandas as pd
+import numpy as np
+from pathlib import Path
 
 from finrl.meta.preprocessor.preprocessors import FeatureEngineer
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 
 
 def download_data(
-        train_start_date,
-        train_end_date,
-        test_start_date,
-        test_end_date,
-        trade_start_date,
-        trade_end_date,
-        ticker_list,
+        ticker_list, 
         tech_indicator_list,
-        train_output_path,
-        test_output_path,
-        trade_output_path,
+        start_date, 
+        end_date, 
+        output_path, 
         use_vix=True):
 
-    def _download_and_process(start_date, end_date, output_path):
+    if Path(output_path).exists():
+        print(f"File {output_path} already exists. Skipping download.")
+        df = pd.read_csv(output_path)
+        print("\n=== Loaded data ===")
+        print(df.head())
+    else:
         df_raw = YahooDownloader(
             start_date=start_date,
             end_date=end_date,
@@ -47,21 +48,59 @@ def download_data(
         )
         combination = list(itertools.product(list_date, list_ticker))
 
-        processed_full = pd.DataFrame(combination, columns=["date", "tic"]).merge(
+        df = pd.DataFrame(combination, columns=["date", "tic"]).merge(
             processed, on=["date", "tic"], how="left"
         )
-        processed_full = processed_full[processed_full["date"].isin(processed["date"])]
-        processed_full = processed_full.sort_values(["date", "tic"], ignore_index=True)
-        processed_full = processed_full.fillna(0)
-        processed_full.index = processed_full["date"].factorize()[0]
+        df = df[df["date"].isin(processed["date"])]
+        df = df.sort_values(["date", "tic"], ignore_index=True)
+        df = df.fillna(0)
+        df.index = df["date"].factorize()[0]
 
         print("\n=== Processed data ===")
-        print(processed_full.head())
+        print(df.head())
 
-        print(f'Length of processed data: {len(processed_full)}')
-        processed_full.to_csv(output_path)
+        print(f'Length of processed data: {len(df)}')
+        df.to_csv(output_path)
         print(f"Data saved to {output_path}")
-    
-    _download_and_process(train_start_date, train_end_date, train_output_path)
-    _download_and_process(test_start_date, test_end_date, test_output_path)
-    _download_and_process(trade_start_date, trade_end_date, trade_output_path)
+
+    # Prepare arrays for environment
+
+    # stable ordering
+    df = df.sort_values(["date", "tic"]).copy()
+
+    dates = sorted(df["date"].unique())
+    tickers = sorted(df["tic"].unique())
+
+    df = df.set_index(["date", "tic"]).sort_index()
+
+    # --- PRICE ---
+    price_array = (
+        df["close"]
+        .unstack("tic")
+        .reindex(index=dates, columns=tickers)
+        .fillna(0)
+        .to_numpy()
+    )
+
+    # --- TECH FEATURES ---
+    tech_cols = [c for c in tech_indicator_list]
+    if use_vix:
+        tech_cols = tech_cols + ["vix"]
+
+    tech_list = []
+    for c in tech_cols:
+        mat = (
+            df[c]
+            .unstack("tic")
+            .reindex(index=dates, columns=tickers)
+            .fillna(0)
+            .to_numpy()
+        )
+        tech_list.append(mat)
+
+    tech_array = np.stack(tech_list, axis=-1)  # (T, N, F)
+
+    print(f"Price array shape: {price_array.shape}")
+    print(f"Technical array shape: {tech_array.shape}")
+
+    return price_array, tech_array
