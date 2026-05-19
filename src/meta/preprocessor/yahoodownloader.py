@@ -15,11 +15,13 @@ class YahooDownloader:
     Attributes
     ----------
         start_date : str
-            start date of the data (modified from neofinrl_config.py)
+            start date of the data
         end_date : str
-            end date of the data (modified from neofinrl_config.py)
+            end date of the data
         ticker_list : list
-            a list of stock tickers (modified from neofinrl_config.py)
+            a list of stock tickers
+        interval : str
+            data interval, one of "1d", "1h", "30m", "15m", "5m", "1m"
 
     Methods
     -------
@@ -28,10 +30,15 @@ class YahooDownloader:
 
     """
 
-    def __init__(self, start_date: str, end_date: str, ticker_list: list):
+    def __init__(self, 
+                 start_date: str, 
+                 end_date: str, 
+                 ticker_list: list, 
+                 interval: str = "1d"):
         self.start_date = start_date
         self.end_date = end_date
         self.ticker_list = ticker_list
+        self.interval = interval
 
     def fetch_data(self, proxy=None, auto_adjust=False) -> pd.DataFrame:
         """Fetches data from Yahoo API
@@ -44,6 +51,10 @@ class YahooDownloader:
             7 columns: A date, open, high, low, close, volume and tick symbol
             for the specified stock ticker
         """
+
+        if proxy is not None:
+            yf.set_config(proxy=proxy)
+
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
         num_failures = 0
@@ -52,8 +63,8 @@ class YahooDownloader:
                 tic,
                 start=self.start_date,
                 end=self.end_date,
-                proxy=proxy,
                 auto_adjust=auto_adjust,
+                interval=self.interval,
             )
             if temp_df.columns.nlevels != 1:
                 temp_df.columns = temp_df.columns.droplevel(1)

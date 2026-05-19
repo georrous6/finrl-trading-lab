@@ -12,6 +12,7 @@ from src.meta.preprocessor.yahoodownloader import YahooDownloader
 def download_data(
         ticker_list, 
         tech_indicator_list,
+        interval,
         start_date, 
         end_date, 
         data_path, 
@@ -27,6 +28,7 @@ def download_data(
             start_date=start_date,
             end_date=end_date,
             ticker_list=ticker_list,
+            interval=interval
         ).fetch_data()
 
         print("\n=== Raw data ===")

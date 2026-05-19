@@ -3,17 +3,7 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from pathlib import Path
 
-from src.configs.config import DATA_SAVE_DIR
-from src.configs.config import INDICATORS
-from src.configs.config import RESULTS_DIR
-from src.configs.config import LOG_DIR
-from src.configs.config import TRAIN_END_DATE
-from src.configs.config import TRAIN_START_DATE
-from src.configs.config import TRAINED_MODEL_DIR
-from src.configs.config import TRAIN_DATA_FILE
-from src.configs.config import PPO_PARAMS
-from src.configs.config_env import MULTI_ASSET_ENV_PARAMS
-from src.configs.config_policy import TRANSFORMER_POLICY_PARAMS
+from src.configs import config
 from src.configs.config_tickers import DOW_30_TICKER
 from src.envs.multi_asset import MultiAssetTradingEnv
 
@@ -27,20 +17,6 @@ def build_parser():
         choices=["train", "test", "trade"],
         metavar="MODE",
         required=True,
-    )
-    parser.add_argument(
-        "--data_source",
-        dest="data_source",
-        help="data source, yahoofinance, binance, alpaca",
-        metavar="DATA_SOURCE",
-        default="yahoofinance",
-    )
-    parser.add_argument(
-        "--time_interval",
-        dest="time_interval",
-        help="time interval, 1D, 1H, 1M",
-        metavar="TIME_INTERVAL",
-        default="1D",
     )
     parser.add_argument(
         "--algo_name",
@@ -67,10 +43,10 @@ def main() -> int:
     parser = build_parser()
     options = parser.parse_args()
     make_directories(
-        [DATA_SAVE_DIR, 
-         TRAINED_MODEL_DIR, 
-         LOG_DIR, 
-         RESULTS_DIR]
+        [config.DATA_SAVE_DIR, 
+         config.TRAINED_MODEL_DIR, 
+         config.LOG_DIR, 
+         config.RESULTS_DIR]
     )
 
     if options.mode == "train":
@@ -79,24 +55,25 @@ def main() -> int:
         env = MultiAssetTradingEnv
 
         train(
-            start_date=TRAIN_START_DATE,
-            end_date=TRAIN_END_DATE,
-            indicator_list=INDICATORS,
+            start_date=config.TRAIN_START_DATE,
+            end_date=config.TRAIN_END_DATE,
+            indicator_list=config.INDICATORS,
             ticker_list=DOW_30_TICKER,
-            data_path=Path(DATA_SAVE_DIR) / TRAIN_DATA_FILE,
+            interval=config.TIME_INTERVAL,
+            data_path=Path(config.DATA_SAVE_DIR) / config.TRAIN_DATA_FILE,
             env=env,
             norm="rolling_window",
             algo=options.algo_name,
             policy="transformer",
-            env_kwargs=MULTI_ASSET_ENV_PARAMS,
-            norm_kwargs={"obs_window": 500},
-            policy_kwargs=TRANSFORMER_POLICY_PARAMS,
-            algo_kwargs=PPO_PARAMS,
-            tensorboard_log=LOG_DIR,
-            seq_len=32,
+            env_kwargs=config.MULTI_ASSET_ENV_PARAMS,
+            norm_kwargs=config.ROLLING_WINDOW_NORM_PARAMS,
+            policy_kwargs=config.TRANSFORMER_POLICY_PARAMS,
+            algo_kwargs=config.PPO_PARAMS,
+            tensorboard_log=config.LOG_DIR,
+            seq_len=config.SEQUENCE_LENGTH,
             verbose=1,
-            total_timesteps=10_000,
-            save_path=Path(TRAINED_MODEL_DIR) / "ppo_transformer.zip",
+            total_timesteps=config.TOTAL_TIMESTEPS,
+            save_path=Path(config.TRAINED_MODEL_DIR) / "ppo_transformer.zip",
         )
     else:
         raise ValueError("Wrong mode.")

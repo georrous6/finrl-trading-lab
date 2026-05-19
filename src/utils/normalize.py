@@ -8,8 +8,8 @@ class RollingWindowNorm(gym.Wrapper):
     def __init__(
         self,
         env,
-        obs_window=1000,
-        reward_window=1000,
+        obs_window=100,
+        reward_window=100,
         norm_obs=True,
         norm_reward=True,
         eps=1e-8,

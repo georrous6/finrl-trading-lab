@@ -5,17 +5,16 @@ from src.policies.transformer_policy import make_transformer_policy
 from src.utils.normalize import RollingWindowNorm
 from src.utils.sequential import VecSequenceWrapper
 from stable_baselines3.common.vec_env import VecMonitor
+from src.utils.callbacks import FinancialMetricsCallback
 
 
 _NORM_MAP = {
     "rolling_window": RollingWindowNorm,
 }
 
-
 _POLICY_MAP = {
     "transformer": make_transformer_policy,
 }
-
 
 _ALGO_MAP = {
     "ppo":  PPO,
@@ -101,11 +100,17 @@ class ReccurentDRLAgent:
         )
 
 
-    def train(self, total_timesteps: int, tb_log_name: Optional[str] = None):
+    def train(self, 
+              total_timesteps: int, 
+              tb_log_name: Optional[str] = None,
+              interval: str = "1d",):
+
         tb_log_name = tb_log_name or f"{self.algo_name}_{self.policy_name}"
+        callback = FinancialMetricsCallback(interval=interval)
         self.model.learn(
             total_timesteps=total_timesteps,
             tb_log_name=tb_log_name,
+            callback=callback
         )
         return self
 

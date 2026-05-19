@@ -7,6 +7,7 @@ def train(
     end_date,
     indicator_list,
     ticker_list,
+    interval,
     data_path,
     env,
     norm,
@@ -26,6 +27,7 @@ def train(
     price_array, tech_array = download_data(
         ticker_list=ticker_list,
         tech_indicator_list=indicator_list,
+        interval=interval,
         start_date=start_date,
         end_date=end_date,
         data_path=data_path,
@@ -51,7 +53,8 @@ def train(
         tensorboard_log=tensorboard_log,
     )
 
-    agent.train(total_timesteps=total_timesteps)
+    agent.train(total_timesteps=total_timesteps, 
+                interval=interval)
     
     print("Training is finished!")
 
