@@ -57,7 +57,4 @@ def train(
                 interval=interval)
     
     print("Training is finished!")
-
-    if save_path is not None:
-        agent.save(save_path)
-        print(f"Trained model is saved in {save_path}")
+    agent.save(save_path)

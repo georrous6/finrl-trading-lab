@@ -22,6 +22,7 @@ class MultiAssetTradingEnv(gym.Env):
         transaction_cost: float = 1e-3,
         position_limit: list[float] | float | np.ndarray = 0.2,
         volatility_penalty: float = 0.0,
+        eps: float = 1e-8,
     ):
         super().__init__()
 
@@ -32,6 +33,7 @@ class MultiAssetTradingEnv(gym.Env):
 
         self.price = price_array
         self.tech = tech_array
+        self.eps = eps
 
         self.T, self.N = price_array.shape
         _, _, self.F = tech_array.shape
@@ -170,7 +172,7 @@ class MultiAssetTradingEnv(gym.Env):
 
     def _reward(self, prev_asset, next_asset):
 
-        return next_asset - prev_asset
+        return np.log((next_asset + self.eps) / (prev_asset + self.eps))
 
 
     def _portfolio_value(self, price):

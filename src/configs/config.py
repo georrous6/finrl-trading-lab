@@ -97,7 +97,7 @@ ROLLING_WINDOW_NORM_PARAMS = {
     "obs_window": 100,
     "reward_window": 100,
     "norm_obs": True,
-    "norm_reward": True,
+    "norm_reward": False,
 }
 
 

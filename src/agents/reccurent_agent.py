@@ -6,6 +6,8 @@ from utils.normalize import RollingWindowNorm
 from utils.sequential import VecSequenceWrapper
 from stable_baselines3.common.vec_env import VecMonitor
 from utils.callbacks import FinancialMetricsCallback
+from pathlib import Path
+from configs.config import TRAINED_MODEL_DIR
 
 
 _NORM_MAP = {
@@ -120,7 +122,16 @@ class ReccurentDRLAgent:
 
 
     def save(self, path: str):
-        self.model.save(path)
+        if not path:
+            i = 1
+            path = Path(TRAINED_MODEL_DIR) / f"{self.algo_name}_{self.policy_name}_{i}.zip"
+
+            # Keep incrementing counter as long as the file already exists
+            while path.exists():
+                i += 1
+                path = Path(TRAINED_MODEL_DIR) / f"{self.algo_name}_{self.policy_name}_{i}.zip"
+        self.model.save(str(path))
+        print(f"Model saved to {path}")
 
 
     @classmethod
