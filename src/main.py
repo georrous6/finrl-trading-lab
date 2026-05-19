@@ -19,12 +19,20 @@ def build_parser():
         required=True,
     )
     parser.add_argument(
-        "--algo_name",
+        "--algo-name",
         dest="algo_name",
         help="algorithm name, a2c, ppo, ddpg, td3, sac, erl",
         metavar="ALGO_NAME",
         choices=["a2c", "ppo", "ddpg", "td3", "sac", "erl"],
         default="ppo",
+    )
+    parser.add_argument(
+        "--total-timesteps",
+        dest="total_timesteps",
+        help="total timesteps for training",
+        metavar="TOTAL_TIMESTEPS",
+        type=int,
+        default=config.TOTAL_TIMESTEPS,
     )
 
     return parser
@@ -72,7 +80,7 @@ def main() -> int:
             tensorboard_log=config.LOG_DIR,
             seq_len=config.SEQUENCE_LENGTH,
             verbose=1,
-            total_timesteps=config.TOTAL_TIMESTEPS,
+            total_timesteps=options.total_timesteps,
             save_path=Path(config.TRAINED_MODEL_DIR) / "ppo_transformer.zip",
         )
     else:

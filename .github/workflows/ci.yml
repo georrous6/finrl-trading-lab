@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  train-eval:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: false
+          activate-environment: finrl_env
+          environment-file: environment.yml
+
+      - name: Run main script (train mode)
+        shell: bash -l {0}
+        run: |
+          python3 "src/main.py" --mode=train --total-timesteps=1000
+
+      - name: Upload training logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-logs
+          path: logs/

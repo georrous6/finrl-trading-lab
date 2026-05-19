@@ -26,7 +26,7 @@ conda activate "$CONDA_VENV"
 
 # Run the source file
 cd "$ROOT_DIR"
-PYTHONPATH=src python3 "src/main.py" "$@"
+python3 "src/main.py" "$@"
 
 END_TIME=$(date +%s)
 ELAPSED_S=$((END_TIME - START_TIME))
