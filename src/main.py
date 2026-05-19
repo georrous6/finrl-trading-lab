@@ -3,9 +3,9 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from pathlib import Path
 
-from src.configs import config
-from src.configs.config_tickers import DOW_30_TICKER
-from src.envs.multi_asset import MultiAssetTradingEnv
+from configs import config
+from configs.config_tickers import DOW_30_TICKER
+from envs.multi_asset import MultiAssetTradingEnv
 
 
 def build_parser():
@@ -58,7 +58,7 @@ def main() -> int:
     )
 
     if options.mode == "train":
-        from src.modes.train import train
+        from modes.train import train
 
         env = MultiAssetTradingEnv
 

@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from src.meta.preprocessor.preprocessors import FeatureEngineer
-from src.meta.preprocessor.yahoodownloader import YahooDownloader
+from meta.preprocessors import FeatureEngineer
+from meta.downloaders import YahooDownloader
 
 
 def download_data(

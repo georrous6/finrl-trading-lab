@@ -1,6 +1,6 @@
 from __future__ import annotations
-from src.agents.reccurent_agent import ReccurentDRLAgent
-from src.utils.download import download_data
+from agents.reccurent_agent import ReccurentDRLAgent
+from utils.download import download_data
 
 def train(
     start_date,

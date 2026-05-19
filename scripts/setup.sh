@@ -23,6 +23,13 @@ CONDA_VENV="finrl_env"
 conda remove -n "$CONDA_VENV" --all -y || true
 conda env create -f "$ROOT_DIR/environment.yml"
 
+# Install PyTorch with CUDA support 
+# (override stable-baselines3's pytorch installation)
+conda activate "$CONDA_VENV"
+pip uninstall -y torch
+pip install torch==2.11.0 \
+--index-url https://download.pytorch.org/whl/cu128
+
 END_TIME=$(date +%s)
 ELAPSED_S=$((END_TIME - START_TIME))
 ELAPSED_H=$(( ELAPSED_S / 3600 ))

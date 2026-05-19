@@ -1,11 +1,11 @@
 from typing import Dict, Optional, Any
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import A2C, PPO, DDPG, SAC, TD3
-from src.policies.transformer_policy import make_transformer_policy
-from src.utils.normalize import RollingWindowNorm
-from src.utils.sequential import VecSequenceWrapper
+from policies.transformer_policy import make_transformer_policy
+from utils.normalize import RollingWindowNorm
+from utils.sequential import VecSequenceWrapper
 from stable_baselines3.common.vec_env import VecMonitor
-from src.utils.callbacks import FinancialMetricsCallback
+from utils.callbacks import FinancialMetricsCallback
 
 
 _NORM_MAP = {
