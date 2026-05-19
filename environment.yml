@@ -1,4 +1,4 @@
-name: ufd_env
+name: finrl_env
 channels:
   - conda-forge
   - defaults
