@@ -7,6 +7,8 @@ from envs.multi_asset import MultiAssetTradingEnv
 from configs.config_tickers import DOW_30_TICKER
 from utils.setup import make_directories, build_parser
 
+from pathlib import Path
+
 def main() -> int:
 
     parser = build_parser("train")
@@ -17,13 +19,15 @@ def main() -> int:
          config.LOG_DIR]
     )
 
+    data_path = str(Path(config.DATA_SAVE_DIR) / config.TRAIN_DATA_FILE)
+
     price_array, tech_array = download_data(
         ticker_list=DOW_30_TICKER,
         tech_indicator_list=config.INDICATORS,
         interval=config.TIME_INTERVAL,
         start_date=config.TRAIN_START_DATE,
         end_date=config.TRAIN_END_DATE,
-        data_path=config.DATA_SAVE_DIR / config.TRAIN_DATA_FILE,
+        data_path=data_path,
         use_vix=True,
     )
 
