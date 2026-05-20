@@ -46,5 +46,9 @@ def main() -> int:
     agent.train(total_timesteps=options.total_timesteps, 
                 interval=config.TIME_INTERVAL)
     
-    print("Training is finished!")
+    print("\nTraining finished")
     agent.save(options.model_save_path)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
