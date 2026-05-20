@@ -13,9 +13,9 @@ def build_parser(mode: str) -> ArgumentParser:
     parser.add_argument(
         "--model-name",
         dest="model_name",
-        help="model name, a2c, ppo, ddpg, td3, sac, erl",
+        help="model name, a2c, ppo, ddpg, td3, sac, recurrent_ppo",
         metavar="MODEL",
-        choices=["a2c", "ppo", "ddpg", "td3", "sac", "erl"],
+        choices=["a2c", "ppo", "ddpg", "td3", "sac", "recurrent_ppo"],
         default="ppo",
     )
     parser.add_argument(
