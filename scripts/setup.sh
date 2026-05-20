@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=setup
+#SBATCH --job-name=finrl-setup
 #SBATCH --time=03:00:00
 #SBATCH --output=slurm-%j.out
 #SBATCH --nodes=1

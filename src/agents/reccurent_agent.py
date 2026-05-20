@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Any
+from typing import Optional
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import A2C, PPO, DDPG, SAC, TD3
 from policies.transformer_policy import make_transformer_policy
@@ -7,23 +7,48 @@ from utils.sequential import VecSequenceWrapper
 from stable_baselines3.common.vec_env import VecMonitor
 from utils.callbacks import FinancialMetricsCallback
 from pathlib import Path
-from configs.config import TRAINED_MODEL_DIR
+from configs import config
 
 
 _NORM_MAP = {
-    "rolling_window": RollingWindowNorm,
+    "rolling_window": {
+        "cls": RollingWindowNorm,
+        "kwargs": config.ROLLING_WINDOW_NORM_PARAMS,
+    },
+    None: {
+        "cls": lambda env, **kwargs: env,  # identity function
+        "kwargs": {},
+    },
 }
 
 _POLICY_MAP = {
-    "transformer": make_transformer_policy,
+    "TransformerPolicy": {
+        "cls": make_transformer_policy,
+        "kwargs": config.TRANSFORMER_POLICY_PARAMS,
+    }
 }
 
 _ALGO_MAP = {
-    "ppo":  PPO,
-    "a2c":  A2C,
-    "td3":  TD3,
-    "ddpg": DDPG,
-    "sac":  SAC,
+    "ppo":  {
+        "cls": PPO,
+        "kwargs": config.PPO_PARAMS
+    },
+    "a2c":  {
+        "cls": A2C,
+        "kwargs": config.A2C_PARAMS
+    },
+    "td3":  {
+        "cls": TD3,
+        "kwargs": config.TD3_PARAMS
+    },
+    "ddpg": {
+        "cls": DDPG,
+        "kwargs": config.DDPG_PARAMS
+    },
+    "sac":  {
+        "cls": SAC,
+        "kwargs": config.SAC_PARAMS
+    },
 }
 
 
@@ -33,13 +58,10 @@ class ReccurentDRLAgent:
 
     Args:
         algo:            Algorithm name -- 'ppo', 'a2c', 'sac', 'td3', 'ddpg'
-        policy:          Policy name -- 'transformer'
+        policy:          Policy name -- 'TransformerPolicy', 'MlpPolicy', 'LstmMlpPolicy'
         env:             Raw gymnasium env (unwrapped)
         seq_len:         Lookback window for VecSequenceWrapper
-        norm:            Normalizer name -- 'rolling_window'
-        norm_kwargs:     kwargs forwarded to the normalizer  e.g. obs_window=500
-        policy_kwargs:   kwargs forwarded to the policy      e.g. d_model=256
-        algo_kwargs:     kwargs forwarded to the algorithm   e.g. n_steps=2048
+        norm:            Normalizer name -- 'rolling_window' or None
         verbose:         SB3 verbosity
         tensorboard_log: TensorBoard log dir
     """
@@ -50,10 +72,7 @@ class ReccurentDRLAgent:
         policy: str,
         env,
         seq_len: int = 32,
-        norm: str = "rolling_window",
-        norm_kwargs:   Optional[Dict[str, Any]] = None,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
-        algo_kwargs:   Optional[Dict[str, Any]] = None,
+        norm: Optional[str] = "rolling_window",
         verbose: int = 1,
         tensorboard_log: Optional[str] = None,
     ):
@@ -63,37 +82,32 @@ class ReccurentDRLAgent:
         # validation
         if policy not in _POLICY_MAP:
             raise ValueError(f"Unknown policy '{policy}'. "
-                             f"Choose from: {list(_POLICY_MAP)}")
+                             f"Choose from: {list(_POLICY_MAP.keys())}")
         if algo not in _ALGO_MAP:
             raise ValueError(f"Unknown algo '{algo}'. "
-                             f"Choose from: {list(_ALGO_MAP)}")
+                             f"Choose from: {list(_ALGO_MAP.keys())}")
         if norm not in _NORM_MAP:
             raise ValueError(f"Unknown norm '{norm}'. "
-                             f"Choose from: {list(_NORM_MAP)}")
+                             f"Choose from: {list(_NORM_MAP.keys())}")
 
-        norm_kwargs   = norm_kwargs   or {}
-        policy_kwargs = policy_kwargs or {}
-        algo_kwargs   = algo_kwargs   or {}
+        norm_kwargs = _NORM_MAP[norm]["kwargs"]
+        policy_kwargs = _POLICY_MAP[policy]["kwargs"]
+        algo_kwargs = dict(_ALGO_MAP[algo]["kwargs"])  # Copy, don't mutate global config
+        algo_kwargs["policy_kwargs"] = policy_kwargs
 
         # environment pipeline
-        env = _NORM_MAP[norm](env, **norm_kwargs)
+        norm_cls = _NORM_MAP[norm]["cls"]
+        env = norm_cls(env, **norm_kwargs)
         env = DummyVecEnv([lambda e=env: e])
-        env = VecMonitor(env)
         env = VecSequenceWrapper(env, seq_len=seq_len)
+        env = VecMonitor(env)
 
         # policy
-        policy_cls = _POLICY_MAP[policy](algo)
-
-        if policy_kwargs:
-            if algo_kwargs.get("policy_kwargs"):
-                raise ValueError(
-                    "Pass policy_kwargs either as a top-level argument or inside "
-                    "algo_kwargs, not both."
-                )
-            algo_kwargs["policy_kwargs"] = policy_kwargs
+        policy_cls = _POLICY_MAP[policy]["cls"](algo)
 
         # trainable model
-        self.model = _ALGO_MAP[algo](
+        algo_cls = _ALGO_MAP[algo]["cls"]
+        self.model = algo_cls(
             policy=policy_cls,
             env=env,
             verbose=verbose,
@@ -124,19 +138,21 @@ class ReccurentDRLAgent:
     def save(self, path: str):
         if not path:
             i = 1
-            path = Path(TRAINED_MODEL_DIR) / f"{self.algo_name}_{self.policy_name}_{i}.zip"
+            path = (Path(config.TRAINED_MODEL_DIR) / 
+                    f"{self.algo_name}_{self.policy_name}_{i}.zip")
 
             # Keep incrementing counter as long as the file already exists
             while path.exists():
                 i += 1
-                path = Path(TRAINED_MODEL_DIR) / f"{self.algo_name}_{self.policy_name}_{i}.zip"
+                path = (Path(config.TRAINED_MODEL_DIR) / 
+                        f"{self.algo_name}_{self.policy_name}_{i}.zip")
         self.model.save(str(path))
         print(f"Model saved to {path}")
 
 
     @classmethod
     def load(cls, algo: str, path: str, env):
-        model_cls = _ALGO_MAP[algo]
+        model_cls = _ALGO_MAP[algo]["cls"]
         instance = object.__new__(cls)
         instance.model = model_cls.load(path, env=env)
         return instance

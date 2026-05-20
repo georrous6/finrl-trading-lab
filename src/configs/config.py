@@ -57,9 +57,10 @@ A2C_PARAMS = {
 }
 PPO_PARAMS = {
     "n_steps": 2048,
-    "ent_coef": 0.01,
-    "learning_rate": 0.00025,
+    "ent_coef": 0.005,
+    "learning_rate": 1e-5,
     "batch_size": 64,
+    "target_kl": 0.02,
 }
 DDPG_PARAMS = {
     "batch_size": 128, 
@@ -94,8 +95,8 @@ ERL_PARAMS = {
 # Normalization parameters
 # ==================================
 ROLLING_WINDOW_NORM_PARAMS = {
-    "obs_window": 100,
-    "reward_window": 100,
+    "obs_window": 500,
+    "reward_window": 500,
     "norm_obs": True,
     "norm_reward": False,
 }
