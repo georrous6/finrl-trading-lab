@@ -21,9 +21,9 @@ def build_parser(mode: str) -> ArgumentParser:
     parser.add_argument(
         "--policy",
         dest="policy",
-        help="policy architecture, mlp, lstm, gru",
+        help="policy architecture, MlpPolicy, MlpLstmPolicy, TransformerPolicy",
         metavar="POLICY",
-        choices=["TransformerPolicy", "MlpPolicy", "LstmMlpPolicy"],
+        choices=["MlpPolicy", "MlpLstmPolicy", "TransformerPolicy"],
         default="TransformerPolicy",
     )
     parser.add_argument(
