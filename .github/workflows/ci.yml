@@ -30,7 +30,7 @@ jobs:
         run: |
           MODEL_NAME="${{ matrix.model }}"
           POLICY="${{ matrix.policy }}"
-          MODEL_PATH="pretrained_models/${MODEL_NAME}_${POLICY}.zip"
+          MODEL_PATH="trained_models/${MODEL_NAME}_${POLICY}.zip"
           echo "MODEL_NAME=$MODEL_NAME" >> $GITHUB_ENV
           echo "POLICY=$POLICY" >> $GITHUB_ENV
           echo "MODEL_PATH=$MODEL_PATH" >> $GITHUB_ENV
@@ -58,7 +58,7 @@ jobs:
           name: artifacts-${{ matrix.model }}
           path: |
             logs/
-            pretrained_models/
+            trained_models/
             results/
 
   test-agent-summary:

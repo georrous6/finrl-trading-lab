@@ -64,17 +64,17 @@ PPO_PARAMS = {
 }
 DDPG_PARAMS = {
     "batch_size": 128, 
-    "buffer_size": 50000, 
+    "buffer_size": 50_000, 
     "learning_rate": 0.001
 }
 TD3_PARAMS = {
     "batch_size": 100, 
-    "buffer_size": 1000000, 
+    "buffer_size": 100_000, 
     "learning_rate": 0.001
 }
 SAC_PARAMS = {
     "batch_size": 64,
-    "buffer_size": 100000,
+    "buffer_size": 100_000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
@@ -105,7 +105,9 @@ ROLLING_WINDOW_NORM_PARAMS = {
 # ==================================
 # Policy configurations
 # ==================================
-TRANSFORMER_POLICY_PARAMS = {
+
+# Separate policy kwargs per algo family
+ON_POLICY_TRANSFORMER_PARAMS = {
     "features_extractor_kwargs": {
         "d_model": 128,
         "nhead": 4,
@@ -113,7 +115,18 @@ TRANSFORMER_POLICY_PARAMS = {
         "dim_feedforward": 256,
         "dropout": 0.1,
     },
-    "net_arch": dict(pi=[64, 64], vf=[64, 64]),
+    "net_arch": dict(pi=[64, 64], vf=[64, 64]),  # PPO, A2C
+}
+
+OFF_POLICY_TRANSFORMER_PARAMS = {
+    "features_extractor_kwargs": {
+        "d_model": 128,
+        "nhead": 4,
+        "num_layers": 2,
+        "dim_feedforward": 256,
+        "dropout": 0.1,
+    },
+    "net_arch": dict(pi=[64, 64], qf=[64, 64]),   # DDPG, TD3, SAC
 }
 
 

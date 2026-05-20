@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import A2C, PPO, DDPG, SAC, TD3
 import gymnasium as gym
@@ -27,7 +27,13 @@ _NORM_MAP = {
 _POLICY_MAP = {
     "TransformerPolicy": {
         "cls": make_transformer_policy,
-        "kwargs": config.TRANSFORMER_POLICY_PARAMS,
+        "kwargs": {
+            "ppo": config.ON_POLICY_TRANSFORMER_PARAMS,
+            "a2c": config.ON_POLICY_TRANSFORMER_PARAMS,
+            "td3": config.OFF_POLICY_TRANSFORMER_PARAMS,
+            "ddpg": config.OFF_POLICY_TRANSFORMER_PARAMS,
+            "sac": config.OFF_POLICY_TRANSFORMER_PARAMS,
+        }
     }
 }
 
@@ -66,7 +72,7 @@ class ReccurentDRLAgent:
         seq_len:         Lookback window for VecSequenceWrapper
         norm:            Normalizer name -- 'rolling_window' or None
         verbose:         SB3 verbosity
-        log_root:        Root directory for TensorBoard logs. Subdirectories will be created for each run.
+        mode:            One of 'train', 'backtest', 'trade'. Affects log directory.
     """
 
     def __init__(
@@ -74,14 +80,13 @@ class ReccurentDRLAgent:
         model_name: str,
         policy: str,
         env: gym.Env,
-        log_root: str,
+        mode: Literal["train", "backtest", "trade"],
         seq_len: int = 32,
         norm: Optional[str] = "rolling_window",
         verbose: int = 1,
     ):
         self.model_name = model_name
         self.policy_name = policy
-        self.log_dir = self._make_log_dir(log_root)
 
         # validation
         if policy not in _POLICY_MAP:
@@ -94,8 +99,15 @@ class ReccurentDRLAgent:
             raise ValueError(f"Unknown norm '{norm}'. "
                              f"Choose from: {list(_NORM_MAP.keys())}")
 
+        self.log_root = (
+            Path(config.LOG_DIR) / 
+            mode / 
+            self.model_name / 
+            self.policy_name
+        )
+
         norm_kwargs = _NORM_MAP[norm]["kwargs"]
-        policy_kwargs = _POLICY_MAP[policy]["kwargs"]
+        policy_kwargs = _POLICY_MAP[policy]["kwargs"][model_name]
         model_kwargs = dict(_MODEL_MAP[model_name]["kwargs"])  # Copy, don't mutate global config
         model_kwargs["policy_kwargs"] = policy_kwargs
 
@@ -116,7 +128,7 @@ class ReccurentDRLAgent:
             policy=policy_cls,
             env=self.env,
             verbose=self.verbose,
-            tensorboard_log=self.log_dir,
+            tensorboard_log=str(self.log_root),
             **model_kwargs,
         )
 
@@ -134,20 +146,17 @@ class ReccurentDRLAgent:
         return self
 
 
-    def _make_log_dir(self, log_root: str) -> str:
+    def _make_run_dir(self) -> str:
 
         i = 1
-        path = (Path(log_root) / 
-                f"{self.model_name}"/ 
-                f"{self.policy_name}" / f"run_{i}")
+        path = self.log_root / f"run_{i}"
 
         # Keep incrementing counter as long as the file already exists
         while path.exists():
             i += 1
-            path = (Path(log_root) / 
-                    f"{self.model_name}" /
-                    f"{self.policy_name}" / f"run_{i}")
-            
+            path = self.log_root / f"run_{i}"
+        
+        path.mkdir(parents=True, exist_ok=False)
         return str(path)
 
 
@@ -159,19 +168,20 @@ class ReccurentDRLAgent:
         while path.exists():
             i += 1
             path = Path(root_dir) / f"{self.model_name}_{self.policy_name}_{i}{suffix}"
-            
+        
         return str(path)
 
 
     def backtest(
         self,
-        path,
+        path: str,
         deterministic: bool = True,
         interval: str = "1d",
     ):
 
         self._load_pretrained_model(path)
-        logger = BacktestLogger(log_dir=self.log_dir, 
+        log_dir = self._make_run_dir()
+        logger = BacktestLogger(log_dir=log_dir, 
                                 interval=interval, 
                                 verbose=self.verbose)
 
@@ -195,10 +205,12 @@ class ReccurentDRLAgent:
 
 
     def save(self, path: Optional[str] = None):
-        if not path:
+        if path is None:
             path = self._make_output_path(config.TRAINED_MODEL_DIR, suffix=".zip")
+        
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.model.save(str(path))
-        print(f"Model saved to {path}")
+        print(f"Model saved to {str(path)}")
 
 
     def _load_pretrained_model(self, path: str):

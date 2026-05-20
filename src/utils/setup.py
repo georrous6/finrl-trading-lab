@@ -3,7 +3,7 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from pathlib import Path
 
-from configs import config
+from configs.config import TOTAL_TIMESTEPS
 
 
 def build_parser(mode: str) -> ArgumentParser:
@@ -53,10 +53,10 @@ def build_parser(mode: str) -> ArgumentParser:
 
     if mode == "train":
         return _add_train_args(parser)
-    elif mode == "test":
+    elif mode == "backtest":
         return _add_test_args(parser)
     else:
-        raise ValueError(f"Unknown mode '{mode}'. Choose 'train' or 'test'.")
+        raise ValueError(f"Unknown mode '{mode}'. Choose 'train' or 'backtest'.")
 
 
 def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
@@ -66,7 +66,7 @@ def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
         help="total timesteps for training",
         metavar="TOTAL_TIMESTEPS",
         type=int,
-        default=config.TOTAL_TIMESTEPS,
+        default=TOTAL_TIMESTEPS,
     )
     parser.add_argument(
         "--model-save-path",
@@ -91,18 +91,9 @@ def _add_test_args(parser: ArgumentParser) -> ArgumentParser:
     return parser
 
 
-def make_directories() -> dict[str, str]:
-    CURRENT_DIR = Path(__file__).parent
-    SRC_DIR = CURRENT_DIR.parent
+def make_directories(directories: list[str]):
+    SRC_DIR = Path(__file__).parent
     ROOT_DIR = SRC_DIR.parent
-    
-    directories = {}
-    directories["DATA_SAVE_DIR"] = ROOT_DIR / config.DATA_SAVE_DIR
-    directories["TRAINED_MODEL_DIR"] = ROOT_DIR / config.TRAINED_MODEL_DIR
-    directories["LOG_DIR"] = ROOT_DIR / config.LOG_DIR
-    directories["RESULTS_DIR"] = ROOT_DIR / config.RESULTS_DIR
-
-    for dir_path in directories.values():
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-    return {key: str(path) for key, path in directories.items()}
+    directories = [ROOT_DIR / directory for directory in directories]
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True)

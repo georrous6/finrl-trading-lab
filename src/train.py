@@ -12,12 +12,16 @@ from pathlib import Path
 
 def main() -> int:
 
-    parser = build_parser("train")
+    mode = "train"
+    parser = build_parser(mode)
     options = parser.parse_args()
-    dirs = make_directories()
+    make_directories([
+        config.DATA_SAVE_DIR, 
+        config.TRAINED_MODEL_DIR, 
+        config.LOG_DIR,
+    ])
 
-    data_path = str(Path(dirs["DATA_SAVE_DIR"]) / config.TRAIN_DATA_FILE)
-    log_root = str(Path(dirs["LOG_DIR"]) / "train")
+    data_path = str(Path(config.DATA_SAVE_DIR) / config.TRAIN_DATA_FILE)
 
     price_array, tech_array = download_data(
         ticker_list=DOW_30_TICKER,
@@ -39,7 +43,7 @@ def main() -> int:
         model_name=options.model_name,
         policy=options.policy,
         env=env,
-        log_root=log_root,
+        mode=mode,
         seq_len=config.SEQUENCE_LENGTH,
         norm=options.norm,
         verbose=options.verbose,
