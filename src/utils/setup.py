@@ -92,8 +92,5 @@ def _add_test_args(parser: ArgumentParser) -> ArgumentParser:
 
 
 def make_directories(directories: list[str]):
-    SRC_DIR = Path(__file__).parent
-    ROOT_DIR = SRC_DIR.parent
-    directories = [ROOT_DIR / directory for directory in directories]
     for directory in directories:
-        directory.mkdir(parents=True, exist_ok=True)
+        Path(directory).mkdir(parents=True, exist_ok=True)
