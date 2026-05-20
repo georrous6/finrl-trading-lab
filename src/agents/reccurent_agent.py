@@ -160,16 +160,26 @@ class ReccurentDRLAgent:
         return str(path)
 
 
-    def _make_output_path(self, root_dir: str, suffix: str = "") -> str:
-        i = 1
-        path = Path(root_dir) / f"{self.model_name}_{self.policy_name}_{i}{suffix}"
+    @staticmethod
+    def _make_unique_path(path: str | Path) -> Path:
+        path = Path(path)
 
-        # Keep incrementing counter as long as the file already exists
-        while path.exists():
+        # If file does not exist, return original path
+        if not path.exists():
+            return path
+
+        stem = path.stem
+        suffix = path.suffix
+        parent = path.parent
+
+        i = 1
+        while True:
+            new_path = parent / f"{stem}_{i}{suffix}"
+
+            if not new_path.exists():
+                return new_path
+
             i += 1
-            path = Path(root_dir) / f"{self.model_name}_{self.policy_name}_{i}{suffix}"
-        
-        return str(path)
 
 
     def backtest(
@@ -206,7 +216,9 @@ class ReccurentDRLAgent:
 
     def save(self, path: Optional[str] = None):
         if path is None:
-            path = self._make_output_path(config.TRAINED_MODEL_DIR, suffix=".zip")
+            path = (Path(config.TRAINED_MODEL_DIR) / 
+                    f"{self.model_name}_{self.policy_name}.zip")
+            path = self._make_unique_path(path)
         
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.model.save(str(path))
