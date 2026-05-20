@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agents.reccurent_agent import ReccurentDRLAgent
+from agents.drl_agent import DRLAgent
 from utils.download import download_data
 from configs import config
 from envs.multi_asset import MultiAssetTradingEnv
@@ -37,9 +37,9 @@ def main() -> int:
         **config.MULTI_ASSET_ENV_PARAMS,
     )
 
-    agent = ReccurentDRLAgent(
+    agent = DRLAgent(
         model_name=options.model_name,
-        policy=options.policy,
+        policy_name=options.policy,
         env=env,
         mode=mode,
         seq_len=config.SEQUENCE_LENGTH,

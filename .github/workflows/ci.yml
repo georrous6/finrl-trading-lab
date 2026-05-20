@@ -11,8 +11,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        model: ["ppo", "a2c", "sac", "td3", "ddpg"]
-        policy: ['TransformerPolicy']
+        include:
+          - model: ppo
+            policy: MlpPolicy
+
+          - model: ppo
+            policy: TransformerPolicy
+
+          - model: a2c
+            policy: MlpPolicy
+
+          - model: a2c
+            policy: TransformerPolicy
+
+          - model: sac
+            policy: MlpPolicy
+
+          - model: sac
+            policy: TransformerPolicy
+
+          - model: td3
+            policy: MlpPolicy
+
+          - model: td3
+            policy: TransformerPolicy
+
+          - model: ddpg
+            policy: MlpPolicy
+
+          - model: ddpg
+            policy: TransformerPolicy
+
+          - model: recurrent_ppo
+            policy: MlpLstmPolicy
 
     steps:
       - name: Checkout repo
@@ -55,7 +86,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.model }}
+          name: artifacts-${{ matrix.model }}-${{ matrix.policy }}
           path: |
             logs/
             trained_models/

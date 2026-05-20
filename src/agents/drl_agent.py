@@ -1,31 +1,34 @@
 from typing import Optional, Literal
-from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import A2C, PPO, DDPG, SAC, TD3
 import gymnasium as gym
 import numpy as np
+from pathlib import Path
+from sb3_contrib import RecurrentPPO
 
 from policies.transformer_policy import make_transformer_policy
-from utils.normalize import RollingWindowNorm
-from utils.sequential import VecSequenceWrapper
-from stable_baselines3.common.vec_env import VecMonitor
 from utils.loggers import TrainingLogger, BacktestLogger
-from pathlib import Path
+from envs.assembly import make_env
 from configs import config
 
 
-_NORM_MAP = {
-    "rolling_window": {
-        "cls": RollingWindowNorm,
-        "kwargs": config.ROLLING_WINDOW_NORM_PARAMS,
-    },
-    None: {
-        "cls": lambda env, **kwargs: env,  # identity function
-        "kwargs": {},
-    },
-}
-
 _POLICY_MAP = {
+    "MlpPolicy": {
+        "type": "builtin",
+        "requires_sequence": False,
+        "cls": None,
+        "kwargs": {},  # use kwargs from _MODEL_MAP
+        "supported_models": {"ppo", "a2c", "td3", "ddpg", "sac"},
+    },
+    "MlpLstmPolicy": {
+        "type": "builtin",
+        "requires_sequence": False,
+        "cls": None,
+        "kwargs": {},  # use kwargs from _MODEL_MAP
+        "supported_models": {"recurrent_ppo"},
+    },
     "TransformerPolicy": {
+        "type": "custom",
+        "requires_sequence": True,
         "cls": make_transformer_policy,
         "kwargs": {
             "ppo": config.ON_POLICY_TRANSFORMER_PARAMS,
@@ -33,7 +36,8 @@ _POLICY_MAP = {
             "td3": config.OFF_POLICY_TRANSFORMER_PARAMS,
             "ddpg": config.OFF_POLICY_TRANSFORMER_PARAMS,
             "sac": config.OFF_POLICY_TRANSFORMER_PARAMS,
-        }
+        },
+        "supported_models": {"ppo", "a2c", "td3", "ddpg", "sac"},
     }
 }
 
@@ -58,16 +62,20 @@ _MODEL_MAP = {
         "cls": SAC,
         "kwargs": config.SAC_PARAMS
     },
+    "recurrent_ppo": {
+        "cls": RecurrentPPO,
+        "kwargs": config.RECURRENT_PPO_PARAMS
+    }
 }
 
 
-class ReccurentDRLAgent:
+class DRLAgent:
     """
-    Sequential DRL agent.
+    Unified DRL agent for training, backtesting, and trading.
 
     Args:
         model_name:      Model name -- 'ppo', 'a2c', 'sac', 'td3', 'ddpg'
-        policy:          Policy name -- 'TransformerPolicy', 'MlpPolicy', 'LstmMlpPolicy'
+        policy_name:     Policy name -- 'TransformerPolicy', 'MlpPolicy', 'LstmMlpPolicy'
         env:             Raw gymnasium env (unwrapped)
         seq_len:         Lookback window for VecSequenceWrapper
         norm:            Normalizer name -- 'rolling_window' or None
@@ -78,7 +86,7 @@ class ReccurentDRLAgent:
     def __init__(
         self,
         model_name: str,
-        policy: str,
+        policy_name: str,
         env: gym.Env,
         mode: Literal["train", "backtest", "trade"],
         seq_len: int = 32,
@@ -86,18 +94,20 @@ class ReccurentDRLAgent:
         verbose: int = 1,
     ):
         self.model_name = model_name
-        self.policy_name = policy
+        self.policy_name = policy_name
 
         # validation
-        if policy not in _POLICY_MAP:
-            raise ValueError(f"Unknown policy '{policy}'. "
+        if policy_name not in _POLICY_MAP:
+            raise ValueError(f"Unknown policy '{policy_name}'. "
                              f"Choose from: {list(_POLICY_MAP.keys())}")
         if model_name not in _MODEL_MAP:
             raise ValueError(f"Unknown model '{model_name}'. "
                              f"Choose from: {list(_MODEL_MAP.keys())}")
-        if norm not in _NORM_MAP:
-            raise ValueError(f"Unknown norm '{norm}'. "
-                             f"Choose from: {list(_NORM_MAP.keys())}")
+        if model_name not in _POLICY_MAP[policy_name]["supported_models"]:
+            raise ValueError(
+                f"Policy '{policy_name}' does not support model '{model_name}'. "
+                f"Supported models: {list(_POLICY_MAP[policy_name]['supported_models'])}"
+            )
 
         self.log_root = (
             Path(config.LOG_DIR) / 
@@ -106,26 +116,28 @@ class ReccurentDRLAgent:
             self.policy_name
         )
 
-        norm_kwargs = _NORM_MAP[norm]["kwargs"]
-        policy_kwargs = _POLICY_MAP[policy]["kwargs"][model_name]
-        model_kwargs = dict(_MODEL_MAP[model_name]["kwargs"])  # Copy, don't mutate global config
-        model_kwargs["policy_kwargs"] = policy_kwargs
+        model_kwargs = dict(_MODEL_MAP[model_name]["kwargs"])  # Copy, don't mutate config
 
-        # environment pipeline
-        norm_cls = _NORM_MAP[norm]["cls"]
-        env = norm_cls(env, **norm_kwargs)
-        env = DummyVecEnv([lambda e=env: e])
-        env = VecSequenceWrapper(env, seq_len=seq_len)
-        self.env = VecMonitor(env)
+        if _POLICY_MAP[policy_name]["type"] == "custom":
+            policy_kwargs = _POLICY_MAP[policy_name]["kwargs"][model_name]
+            model_kwargs["policy_kwargs"] = policy_kwargs
+            policy = _POLICY_MAP[policy_name]["cls"](model_name)
+        else:
+            policy = policy_name
+
+        # build environment
+        self.env = make_env(
+            env=env,
+            norm=norm,
+            seq_len=seq_len,
+            requires_sequence=_POLICY_MAP[policy_name]["requires_sequence"],
+        )
         self.verbose = verbose
-
-        # policy
-        policy_cls = _POLICY_MAP[policy]["cls"](model_name)
 
         # trainable model
         model_cls = _MODEL_MAP[model_name]["cls"]
         self.model = model_cls(
-            policy=policy_cls,
+            policy=policy,
             env=self.env,
             verbose=self.verbose,
             tensorboard_log=str(self.log_root),
@@ -198,14 +210,23 @@ class ReccurentDRLAgent:
         obs = self.env.reset()
         done = False
 
+        lstm_states = None
+        episode_start = np.ones((self.env.num_envs,), dtype=bool)
+
         while not done:
-            action, _ = self.model.predict(obs, deterministic=deterministic)
-            obs, _, done, info = self.env.step(action)
+            action, lstm_states = self.model.predict(
+                obs, 
+                state=lstm_states,
+                episode_start=episode_start,
+                deterministic=deterministic)
+            
+            obs, _, dones, info = self.env.step(action)
 
             if "portfolio_value" in info[0]:
                 logger.log_step(info[0]["portfolio_value"])
 
-            done = done[0]   # DummyVecEnv returns array
+            episode_start = dones
+            done = dones[0]   # DummyVecEnv returns array
 
         logger.close()
 

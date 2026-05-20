@@ -89,6 +89,20 @@ ERL_PARAMS = {
     "eval_gap": 30,
     "eval_times": 64,
 }
+RECURRENT_PPO_PARAMS = {
+    "learning_rate": 3e-5,
+    "n_steps": 512,
+    "batch_size": 64,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "target_kl": 0.02,
+    "ent_coef": 0.001,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "seed": 312,
+}
 
 
 # ==================================
