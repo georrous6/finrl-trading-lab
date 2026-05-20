@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=finrl-train
+#SBATCH --job-name=finrl-backtest
 #SBATCH --time=6:00:00
 #SBATCH --partition=ampere
 #SBATCH --output=slurm-%j.out
@@ -26,7 +26,7 @@ conda activate "$CONDA_VENV"
 
 # Run the source file
 cd "$ROOT_DIR"
-PYTHONPATH=src python3 "src/train.py" "$@"
+PYTHONPATH=src python3 "src/backtest.py" "$@"
 
 END_TIME=$(date +%s)
 ELAPSED_S=$((END_TIME - START_TIME))

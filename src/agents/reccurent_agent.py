@@ -1,11 +1,14 @@
 from typing import Optional
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import A2C, PPO, DDPG, SAC, TD3
+import gymnasium as gym
+import numpy as np
+
 from policies.transformer_policy import make_transformer_policy
 from utils.normalize import RollingWindowNorm
 from utils.sequential import VecSequenceWrapper
 from stable_baselines3.common.vec_env import VecMonitor
-from utils.callbacks import FinancialMetricsCallback
+from utils.loggers import TrainingLogger, BacktestLogger
 from pathlib import Path
 from configs import config
 
@@ -28,7 +31,7 @@ _POLICY_MAP = {
     }
 }
 
-_ALGO_MAP = {
+_MODEL_MAP = {
     "ppo":  {
         "cls": PPO,
         "kwargs": config.PPO_PARAMS
@@ -57,102 +60,147 @@ class ReccurentDRLAgent:
     Sequential DRL agent.
 
     Args:
-        algo:            Algorithm name -- 'ppo', 'a2c', 'sac', 'td3', 'ddpg'
+        model_name:      Model name -- 'ppo', 'a2c', 'sac', 'td3', 'ddpg'
         policy:          Policy name -- 'TransformerPolicy', 'MlpPolicy', 'LstmMlpPolicy'
         env:             Raw gymnasium env (unwrapped)
         seq_len:         Lookback window for VecSequenceWrapper
         norm:            Normalizer name -- 'rolling_window' or None
         verbose:         SB3 verbosity
-        tensorboard_log: TensorBoard log dir
+        log_root:        Root directory for TensorBoard logs. Subdirectories will be created for each run.
     """
 
     def __init__(
         self,
-        algo: str,
+        model_name: str,
         policy: str,
-        env,
+        env: gym.Env,
+        log_root: str,
         seq_len: int = 32,
         norm: Optional[str] = "rolling_window",
         verbose: int = 1,
-        tensorboard_log: Optional[str] = None,
     ):
-        self.algo_name = algo
+        self.model_name = model_name
         self.policy_name = policy
+        self.log_dir = self._make_log_dir(log_root)
 
         # validation
         if policy not in _POLICY_MAP:
             raise ValueError(f"Unknown policy '{policy}'. "
                              f"Choose from: {list(_POLICY_MAP.keys())}")
-        if algo not in _ALGO_MAP:
-            raise ValueError(f"Unknown algo '{algo}'. "
-                             f"Choose from: {list(_ALGO_MAP.keys())}")
+        if model_name not in _MODEL_MAP:
+            raise ValueError(f"Unknown model '{model_name}'. "
+                             f"Choose from: {list(_MODEL_MAP.keys())}")
         if norm not in _NORM_MAP:
             raise ValueError(f"Unknown norm '{norm}'. "
                              f"Choose from: {list(_NORM_MAP.keys())}")
 
         norm_kwargs = _NORM_MAP[norm]["kwargs"]
         policy_kwargs = _POLICY_MAP[policy]["kwargs"]
-        algo_kwargs = dict(_ALGO_MAP[algo]["kwargs"])  # Copy, don't mutate global config
-        algo_kwargs["policy_kwargs"] = policy_kwargs
+        model_kwargs = dict(_MODEL_MAP[model_name]["kwargs"])  # Copy, don't mutate global config
+        model_kwargs["policy_kwargs"] = policy_kwargs
 
         # environment pipeline
         norm_cls = _NORM_MAP[norm]["cls"]
         env = norm_cls(env, **norm_kwargs)
         env = DummyVecEnv([lambda e=env: e])
         env = VecSequenceWrapper(env, seq_len=seq_len)
-        env = VecMonitor(env)
+        self.env = VecMonitor(env)
+        self.verbose = verbose
 
         # policy
-        policy_cls = _POLICY_MAP[policy]["cls"](algo)
+        policy_cls = _POLICY_MAP[policy]["cls"](model_name)
 
         # trainable model
-        algo_cls = _ALGO_MAP[algo]["cls"]
-        self.model = algo_cls(
+        model_cls = _MODEL_MAP[model_name]["cls"]
+        self.model = model_cls(
             policy=policy_cls,
-            env=env,
-            verbose=verbose,
-            tensorboard_log=tensorboard_log,
-            **algo_kwargs,
+            env=self.env,
+            verbose=self.verbose,
+            tensorboard_log=self.log_dir,
+            **model_kwargs,
         )
 
 
     def train(self, 
               total_timesteps: int, 
-              tb_log_name: Optional[str] = None,
               interval: str = "1d",):
 
-        tb_log_name = tb_log_name or f"{self.algo_name}_{self.policy_name}"
-        callback = FinancialMetricsCallback(interval=interval)
+        callback = TrainingLogger(interval=interval)
         self.model.learn(
             total_timesteps=total_timesteps,
-            tb_log_name=tb_log_name,
+            tb_log_name="run",
             callback=callback
         )
         return self
 
 
-    def predict(self, obs, deterministic: bool = True):
+    def _make_log_dir(self, log_root: str) -> str:
+
+        i = 1
+        path = (Path(log_root) / 
+                f"{self.model_name}"/ 
+                f"{self.policy_name}" / f"run_{i}")
+
+        # Keep incrementing counter as long as the file already exists
+        while path.exists():
+            i += 1
+            path = (Path(log_root) / 
+                    f"{self.model_name}" /
+                    f"{self.policy_name}" / f"run_{i}")
+            
+        return str(path)
+
+
+    def _make_output_path(self, root_dir: str, suffix: str = "") -> str:
+        i = 1
+        path = Path(root_dir) / f"{self.model_name}_{self.policy_name}_{i}{suffix}"
+
+        # Keep incrementing counter as long as the file already exists
+        while path.exists():
+            i += 1
+            path = Path(root_dir) / f"{self.model_name}_{self.policy_name}_{i}{suffix}"
+            
+        return str(path)
+
+
+    def backtest(
+        self,
+        path,
+        deterministic: bool = True,
+        interval: str = "1d",
+    ):
+
+        self._load_pretrained_model(path)
+        logger = BacktestLogger(log_dir=self.log_dir, 
+                                interval=interval, 
+                                verbose=self.verbose)
+
+        obs = self.env.reset()
+        done = False
+
+        while not done:
+            action, _ = self.model.predict(obs, deterministic=deterministic)
+            obs, _, done, info = self.env.step(action)
+
+            if "portfolio_value" in info[0]:
+                logger.log_step(info[0]["portfolio_value"])
+
+            done = done[0]   # DummyVecEnv returns array
+
+        logger.close()
+
+
+    def predict(self, obs: np.ndarray, deterministic: bool = True):
         return self.model.predict(obs, deterministic=deterministic)
 
 
-    def save(self, path: str):
+    def save(self, path: Optional[str] = None):
         if not path:
-            i = 1
-            path = (Path(config.TRAINED_MODEL_DIR) / 
-                    f"{self.algo_name}_{self.policy_name}_{i}.zip")
-
-            # Keep incrementing counter as long as the file already exists
-            while path.exists():
-                i += 1
-                path = (Path(config.TRAINED_MODEL_DIR) / 
-                        f"{self.algo_name}_{self.policy_name}_{i}.zip")
+            path = self._make_output_path(config.TRAINED_MODEL_DIR, suffix=".zip")
         self.model.save(str(path))
         print(f"Model saved to {path}")
 
 
-    @classmethod
-    def load(cls, algo: str, path: str, env):
-        model_cls = _ALGO_MAP[algo]["cls"]
-        instance = object.__new__(cls)
-        instance.model = model_cls.load(path, env=env)
-        return instance
+    def _load_pretrained_model(self, path: str):
+        model_cls = _MODEL_MAP[self.model_name]["cls"]
+        self.model = model_cls.load(path, env=self.env)

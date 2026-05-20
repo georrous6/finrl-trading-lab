@@ -45,8 +45,10 @@ class MultiAssetTradingEnv(gym.Env):
             assert len(position_limit) == self.N, "position_limit list must match number of assets"
             self.position_limit = np.array(position_limit, dtype=np.float32)
 
-        # Normalize to add up to 1.0
-        self.position_limit /= self.position_limit.sum()
+        total_exposure = self.position_limit.sum()
+        if total_exposure > 1.0:
+            # Normalize to ensure total exposure does not exceed 100%
+            self.position_limit /= self.position_limit.sum()
 
         self.initial_capital = initial_capital
         self.tc = transaction_cost

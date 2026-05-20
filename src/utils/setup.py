@@ -3,7 +3,7 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from pathlib import Path
 
-from configs.config import TOTAL_TIMESTEPS
+from configs import config
 
 
 def build_parser(mode: str) -> ArgumentParser:
@@ -11,10 +11,10 @@ def build_parser(mode: str) -> ArgumentParser:
 
     # Add common arguments
     parser.add_argument(
-        "--algo",
-        dest="algo",
-        help="algorithm name, a2c, ppo, ddpg, td3, sac, erl",
-        metavar="ALGO",
+        "--model-name",
+        dest="model_name",
+        help="model name, a2c, ppo, ddpg, td3, sac, erl",
+        metavar="MODEL",
         choices=["a2c", "ppo", "ddpg", "td3", "sac", "erl"],
         default="ppo",
     )
@@ -44,11 +44,19 @@ def build_parser(mode: str) -> ArgumentParser:
         choices=[0, 1, 2],
         default=1,
     )
+    parser.add_argument(
+        "--no-vix",
+        dest="no_vix",
+        help="exclude VIX data",
+        action="store_true",
+    )
 
     if mode == "train":
         return _add_train_args(parser)
-
-    return parser
+    elif mode == "test":
+        return _add_test_args(parser)
+    else:
+        raise ValueError(f"Unknown mode '{mode}'. Choose 'train' or 'test'.")
 
 
 def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
@@ -58,7 +66,7 @@ def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
         help="total timesteps for training",
         metavar="TOTAL_TIMESTEPS",
         type=int,
-        default=TOTAL_TIMESTEPS,
+        default=config.TOTAL_TIMESTEPS,
     )
     parser.add_argument(
         "--model-save-path",
@@ -71,9 +79,30 @@ def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
     return parser
 
 
-def make_directories(directories: list[str]):
-    SRC_DIR = Path(__file__).parent
+def _add_test_args(parser: ArgumentParser) -> ArgumentParser:
+    parser.add_argument(
+        "--model-path",
+        dest="model_path",
+        help="path to load the trained model from",
+        metavar="MODEL_PATH",
+        type=str,
+        required=True,
+    )
+    return parser
+
+
+def make_directories() -> dict[str, str]:
+    CURRENT_DIR = Path(__file__).parent
+    SRC_DIR = CURRENT_DIR.parent
     ROOT_DIR = SRC_DIR.parent
-    directories = [ROOT_DIR / directory for directory in directories]
-    for directory in directories:
-        directory.mkdir(parents=True, exist_ok=True)
+    
+    directories = {}
+    directories["DATA_SAVE_DIR"] = ROOT_DIR / config.DATA_SAVE_DIR
+    directories["TRAINED_MODEL_DIR"] = ROOT_DIR / config.TRAINED_MODEL_DIR
+    directories["LOG_DIR"] = ROOT_DIR / config.LOG_DIR
+    directories["RESULTS_DIR"] = ROOT_DIR / config.RESULTS_DIR
+
+    for dir_path in directories.values():
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+    return {key: str(path) for key, path in directories.items()}

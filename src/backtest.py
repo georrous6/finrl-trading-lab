@@ -9,22 +9,21 @@ from utils.setup import make_directories, build_parser
 
 from pathlib import Path
 
-
 def main() -> int:
 
-    parser = build_parser("train")
+    parser = build_parser("test")
     options = parser.parse_args()
     dirs = make_directories()
 
-    data_path = str(Path(dirs["DATA_SAVE_DIR"]) / config.TRAIN_DATA_FILE)
-    log_root = str(Path(dirs["LOG_DIR"]) / "train")
+    data_path = str(Path(dirs["DATA_SAVE_DIR"]) / config.TEST_DATA_FILE)
+    log_root = str(Path(dirs["LOG_DIR"]) / "test")
 
     price_array, tech_array = download_data(
         ticker_list=DOW_30_TICKER,
         tech_indicator_list=config.INDICATORS,
         interval=config.TIME_INTERVAL,
-        start_date=config.TRAIN_START_DATE,
-        end_date=config.TRAIN_END_DATE,
+        start_date=config.TEST_START_DATE,
+        end_date=config.TEST_END_DATE,
         data_path=data_path,
         use_vix=not options.no_vix,
     )
@@ -45,11 +44,11 @@ def main() -> int:
         verbose=options.verbose,
     )
 
-    agent.train(total_timesteps=options.total_timesteps, 
-                interval=config.TIME_INTERVAL)
-    
-    print("\nTraining finished")
-    agent.save(options.model_save_path)
+    agent.backtest(
+        path=options.model_path,
+        deterministic=True,
+        interval=config.TIME_INTERVAL,
+    )
 
 
 if __name__ == "__main__":

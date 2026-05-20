@@ -66,26 +66,26 @@ _POLICY_BASE_MAP = {
     "sac":  SACPolicy,
 }
 
-def make_transformer_policy(algo: str):
+def make_transformer_policy(model_name: str):
     """
     Returns a TransformerPolicy class with the correct base
-    for the given algorithm.
+    for the given model.
 
     Usage:
         policy_cls = make_transformer_policy("ppo")
         model = PPO(policy=policy_cls, env=env)
     """
-    if algo not in _POLICY_BASE_MAP:
+    if model_name not in _POLICY_BASE_MAP:
         raise ValueError(
-            f"No transformer policy for '{algo}'. "
+            f"No transformer policy for '{model_name}'. "
             f"Choose from: {list(_POLICY_BASE_MAP)}"
         )
 
-    base = _POLICY_BASE_MAP[algo]
+    base = _POLICY_BASE_MAP[model_name]
 
     class TransformerPolicy(base):
         def __init__(self, *args, **kwargs):
-            print(f"[TransformerPolicy] base={base.__name__}, algo={algo}")
+            print(f"[TransformerPolicy] base={base.__name__}, model_name={model_name}")
             kwargs["features_extractor_class"]  = _TransformerFeatureExtractor
             super().__init__(*args, **kwargs)
 
