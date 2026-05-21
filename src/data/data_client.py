@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Sequence
-
 import numpy as np
 import pandas as pd
 
@@ -19,7 +18,7 @@ _TIMEFRAME_MAP = {
     "1d": TimeFrame(1, TimeFrameUnit.Day),
 }
 
-class AlpacaProcessor:
+class DataClient:
     """
     Handles ALL market data acquisition for live trading.
 
@@ -43,7 +42,7 @@ class AlpacaProcessor:
         )
 
 
-    def get_prices(
+    def get_latest_prices(
         self,
         tickers: Sequence[str],
     ) -> np.ndarray:
@@ -65,7 +64,7 @@ class AlpacaProcessor:
         return prices  # (N,)
 
 
-    def get_tech_indicators(
+    def get_latest_indicators(
         self,
         tickers: Sequence[str],
         indicators: Sequence[str],
@@ -108,7 +107,7 @@ class AlpacaProcessor:
                 "volume": ticker_bars["volume"].astype(float).values,
             })
 
-            stock    = Sdf.retype(df)
+            stock = Sdf.retype(df)
             features = []
 
             for indicator in indicators:
@@ -122,3 +121,61 @@ class AlpacaProcessor:
             all_features.append(features)
 
         return np.array(all_features, dtype=np.float32)  # (N, F)
+
+
+    def get_latest_vix(self) -> float:
+
+        request = StockLatestTradeRequest(symbol_or_symbols=["VIX"])
+        trades = self.client.get_stock_latest_trade(request)
+
+        trade = trades.get("VIX")
+
+        if trade is None:
+            raise ValueError("No VIX data available")
+
+        return float(trade.price)
+
+
+    def get_price_history(
+        self,
+        tickers: Sequence[str],
+        timeframe: str = "1d",
+        limit: int = 100,
+    ) -> np.ndarray:
+        """
+        Returns
+        -------
+        np.ndarray shape (T, N) of close prices, ordered by time.
+        """
+        timeframe = timeframe.lower()
+        if timeframe not in _TIMEFRAME_MAP:
+            raise ValueError(
+                f"Unsupported timeframe '{timeframe}'."
+                f"Supported timeframes: {list(_TIMEFRAME_MAP.keys())}"
+            )
+
+        request = StockBarsRequest(
+            symbol_or_symbols=list(tickers),
+            timeframe=_TIMEFRAME_MAP[timeframe],
+            limit=limit,
+        )
+        bars_df = self.client.get_stock_bars(request).df.reset_index()
+
+        prices = np.zeros((limit, len(tickers)), dtype=np.float32)
+
+        for i, ticker in enumerate(tickers):
+            ticker_bars = bars_df[bars_df["symbol"] == ticker].copy()
+
+            if ticker_bars.empty:
+                raise ValueError(f"No data for {ticker}")
+
+            ticker_bars = ticker_bars.sort_values("timestamp")
+
+            if len(ticker_bars) < limit:
+                raise ValueError(
+                    f"Not enough bars for {ticker}: {len(ticker_bars)} < {limit}"
+                )
+
+            prices[:, i] = ticker_bars["close"].astype(float).values[-limit:]
+
+        return prices

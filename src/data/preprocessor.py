@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import itertools
 import numpy as np
 import pandas as pd
 from stockstats import StockDataFrame as Sdf
 
 from configs.config import INDICATORS
-from meta.downloaders import YahooDownloader
+from data.downloader import DataDownloader
 
 
 class FeatureEngineer:
@@ -19,8 +20,6 @@ class FeatureEngineer:
             a list of technical indicator names (modified from neofinrl_config.py)
         use_turbulence : boolean
             use turbulence index or not
-        user_defined_feature:boolean
-            use user defined features or not
 
     Methods
     -------
@@ -35,13 +34,11 @@ class FeatureEngineer:
         tech_indicator_list=INDICATORS,
         use_vix=False,
         use_turbulence=False,
-        user_defined_feature=False,
     ):
         self.use_technical_indicator = use_technical_indicator
         self.tech_indicator_list = tech_indicator_list
         self.use_vix = use_vix
         self.use_turbulence = use_turbulence
-        self.user_defined_feature = user_defined_feature
 
     def preprocess_data(self, df):
         """main method to do the feature engineering
@@ -66,14 +63,80 @@ class FeatureEngineer:
             df = self.add_turbulence(df)
             print("Successfully added turbulence index")
 
-        # add user defined feature
-        if self.user_defined_feature:
-            df = self.add_user_defined_feature(df)
-            print("Successfully added user defined features")
-
         # fill the missing values at the beginning and the end
         df = df.ffill().bfill()
         return df
+
+    def finalize_data(self, processed):
+        list_ticker = processed["tic"].unique().tolist()
+        list_date = list(
+            pd.date_range(processed["date"].min(), processed["date"].max()).astype(str)
+        )
+        combination = list(itertools.product(list_date, list_ticker))
+
+        df = pd.DataFrame(combination, columns=["date", "tic"]).merge(
+            processed, on=["date", "tic"], how="left"
+        )
+        df = df[df["date"].isin(processed["date"])]
+        df = df.sort_values(["date", "tic"], ignore_index=True)
+        df = df.fillna(0)
+        df.index = df["date"].factorize()[0]
+        return df
+
+    def build_feature_arrays(self, df):
+        df = df.sort_values(["date", "tic"]).copy()
+
+        dates = sorted(df["date"].unique())
+        tickers = sorted(df["tic"].unique())
+
+        df = df.set_index(["date", "tic"]).sort_index()
+
+        price_array = (
+            df["close"]
+            .unstack("tic")
+            .reindex(index=dates, columns=tickers)
+            .fillna(0)
+            .to_numpy()
+        )
+
+        tech_cols = [c for c in self.tech_indicator_list]
+
+        tech_list = []
+        for c in tech_cols:
+            mat = (
+                df[c]
+                .unstack("tic")
+                .reindex(index=dates, columns=tickers)
+                .fillna(0)
+                .to_numpy()
+            )
+            tech_list.append(mat)
+
+        tech_array = np.stack(tech_list, axis=-1)
+
+        vix_array = None
+        if self.use_vix and "vix" in df.columns:
+            vix_array = (
+                df["vix"]
+                .groupby(level=0)
+                .first()
+                .reindex(dates)
+                .fillna(0)
+                .to_numpy()
+            )
+
+        turbulence_array = None
+        if self.use_turbulence and "turbulence" in df.columns:
+            turbulence_array = (
+                df["turbulence"]
+                .groupby(level=0)
+                .first()
+                .reindex(dates)
+                .fillna(0)
+                .to_numpy()
+            )
+
+        return price_array, tech_array, vix_array, turbulence_array
 
     def clean_data(self, data):
         """
@@ -126,16 +189,6 @@ class FeatureEngineer:
         df = df.sort_values(by=["date", "tic"])
         return df
 
-    def add_user_defined_feature(self, data):
-        """
-         add user defined features
-        :param data: (df) pandas dataframe
-        :return: (df) pandas dataframe
-        """
-        df = data.copy()
-        df["daily_return"] = df.close.pct_change(1)
-        return df
-
     def add_vix(self, data):
         """
         add vix from yahoo finance
@@ -143,7 +196,7 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
-        df_vix = YahooDownloader(
+        df_vix = DataDownloader(
             start_date=df.date.min(), end_date=df.date.max(), ticker_list=["^VIX"]
         ).fetch_data()
         vix = df_vix[["date", "close"]]
@@ -165,7 +218,8 @@ class FeatureEngineer:
         df = df.sort_values(["date", "tic"]).reset_index(drop=True)
         return df
 
-    def calculate_turbulence(self, data):
+    @staticmethod
+    def calculate_turbulence(data):
         """calculate turbulence index based on dow 30"""
         # can add other market assets
         df = data.copy()

@@ -1,5 +1,7 @@
 from .assembly import make_env
-from .multi_asset import MultiAssetTradingEnv
+from .stock_trading_env import StockTradingEnv
+from .crypto_trading_env import CryptoTradingEnv
 
 __all__ = ["make_env", 
-           "MultiAssetTradingEnv"]
+           "StockTradingEnv",
+           "CryptoTradingEnv"]

@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import datetime
 import time
-from typing import Sequence
+from typing import Sequence, Optional
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 import numpy as np
 from stable_baselines3 import PPO
-from meta.processor_alpaca import AlpacaProcessor
+from data.data_client import DataClient
 
 
-class AlpacaPaperTrading:
+class StockPaperTrading:
     """
     Live paper trading wrapper for a PPO agent trained on
     MultiAssetTradingEnv.
@@ -23,7 +23,9 @@ class AlpacaPaperTrading:
         cash,
         shares,
         prices,
-        indicators_flat
+        indicators_flat,
+        vix,
+        turbulence
     ]
     """
 
@@ -34,17 +36,23 @@ class AlpacaPaperTrading:
         tech_indicator_list: Sequence[str],
         api_key: str,
         api_secret: str,
+        use_vix: bool,
+        use_turbulence: bool,
         trading_interval: str = "1m",
         transaction_cost: float = 1e-3,
-        position_limit: float | np.ndarray = 0.2,
+        turbulence_threshold: Optional[float] = None,
         min_trade_fraction: float = 0.05,
         timeframe: str = "1d",
+        max_stocks: np.ndarray | int = 1000,
         limit: int = 100,
     ):
 
         self.tickers = list(ticker_list)
         self.N = len(self.tickers)
         self.tech_indicators = list(tech_indicator_list)
+        self.turbulence_threshold = turbulence_threshold
+        self.use_vix = use_vix
+        self.use_turbulence = use_turbulence
 
         # Load trained model
         self.model = PPO.load(model_path)
@@ -56,8 +64,14 @@ class AlpacaPaperTrading:
             paper=True,
         )
 
+        if isinstance(max_stocks, int):
+            self.max_stocks = np.full(self.N, max_stocks, dtype=np.int32)
+        else:
+            assert len(max_stocks) == self.N, "max_stocks must have length N"
+            self.max_stocks = np.array(max_stocks, dtype=np.int32)
+
         # Initialize data client
-        self.data_client = AlpacaProcessor(
+        self.data_client = DataClient(
             api_key,
             api_secret,
         )
@@ -67,13 +81,6 @@ class AlpacaPaperTrading:
         self.min_trade_fraction = min_trade_fraction
         self.timeframe = timeframe
         self.limit = limit
-
-        if isinstance(position_limit, float):
-            self.position_limit = np.full(self.N, position_limit)
-        else:
-            if len(position_limit) != self.N:
-                raise ValueError("position_limit length must match number of tickers")
-            self.position_limit = np.asarray(position_limit)
 
         # Trading interval handling
         str_to_sec = {
@@ -142,6 +149,13 @@ class AlpacaPaperTrading:
         action = np.asarray(action)
         action = np.clip(action, -1.0, 1.0)
 
+        if (
+            self.turbulence_threshold is not None
+            and self.use_turbulence
+            and float(obs[-1]) > self.turbulence_threshold
+        ):
+            action = np.minimum(action, 0.0)
+
         prices = self.get_prices()
         shares = self.get_positions()
 
@@ -158,7 +172,7 @@ class AlpacaPaperTrading:
 
             sell_shares = sell_fraction * shares[i]
 
-            qty = sell_shares
+            qty = int(sell_shares)
 
             if qty <= 0:
                 continue
@@ -184,27 +198,17 @@ class AlpacaPaperTrading:
                 continue
 
             # target exposure
-            max_exposure = self.position_limit[i] * portfolio_value
-
-            current_exposure = shares[i] * prices[i]
-
-            remaining_exposure = max(
-                0.0,
-                max_exposure - current_exposure,
+            remaining_shares = self.max_stocks[i] - shares[i]
+            desired_shares = int(
+                action[i] * portfolio_value / prices[i]
+            )
+            buy_shares = min(
+                desired_shares, 
+                remaining_shares,
+                cash // (prices[i] * (1 + self.transaction_cost))
             )
 
-            desired_dollars = action[i] * portfolio_value
-
-            buy_dollars = min(
-                desired_dollars,
-                remaining_exposure,
-                cash,
-            )
-
-            qty = (
-                buy_dollars
-                / (prices[i] * (1 + self.transaction_cost))
-            )
+            qty = int(buy_shares)
 
             if qty <= 0:
                 continue
@@ -217,6 +221,54 @@ class AlpacaPaperTrading:
 
             cash -= qty * prices[i] * (1 + self.transaction_cost)
 
+    def get_vix(self):
+        return self.data_client.get_latest_vix()
+        
+    def get_turbulence(self) -> float:
+
+        price_history = self.data_client.get_price_history(
+            tickers=self.tickers,
+            timeframe=self.timeframe,
+            limit=self.limit,
+        )
+
+        # returns shape: (window, N)
+        returns = (
+            price_history[1:] /
+            (price_history[:-1] + 1e-8)
+        ) - 1.0
+
+        current_return = returns[-1]
+        hist_returns = returns[:-1]
+
+        mean = np.mean(
+            hist_returns,
+            axis=0,
+        )
+
+        cov = np.cov(
+            hist_returns,
+            rowvar=False,
+        )
+
+        diff = current_return - mean
+
+        try:
+
+            inv_cov = np.linalg.pinv(cov)
+
+            turbulence = (
+                diff.T @ inv_cov @ diff
+            )
+
+        except Exception:
+
+            turbulence = 0.0
+
+        if np.isnan(turbulence):
+            turbulence = 0.0
+
+        return float(turbulence)
 
     def get_observation(self):
 
@@ -224,7 +276,17 @@ class AlpacaPaperTrading:
         shares = self.get_positions()
         prices = self.get_prices()
 
-        tech = self.data_client.get_tech_indicators(
+        if self.use_vix:
+            vix = self.get_vix()
+        else:
+            vix = 0.0
+
+        if self.use_turbulence:
+            turbulence = self.get_turbulence()
+        else:
+            turbulence = 0.0
+
+        tech = self.data_client.get_latest_indicators(
             tickers=self.tickers,
             indicators=self.tech_indicators,
             timeframe=self.timeframe,
@@ -236,6 +298,8 @@ class AlpacaPaperTrading:
             shares,
             prices,
             tech.flatten(),
+            [vix],
+            [turbulence],
         ]).astype(np.float32)
 
         return obs
@@ -243,7 +307,7 @@ class AlpacaPaperTrading:
 
     def get_prices(self) -> np.ndarray:
 
-        return self.data_client.get_prices(self.tickers)
+        return self.data_client.get_latest_prices(self.tickers)
 
 
     def get_cash(self) -> float:
@@ -276,7 +340,7 @@ class AlpacaPaperTrading:
     def submit_order(
         self,
         symbol: str,
-        qty: float,
+        qty: int,
         side: str,
     ):
         order = MarketOrderRequest(

@@ -3,25 +3,30 @@ from __future__ import annotations
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
+from typing import Optional
 
 
-class MultiAssetTradingEnv(gym.Env):
+class StockTradingEnv(gym.Env):
     """
-    Multi-asset trading environment.
-    Suitable for stock or cryptocurrency trading.
+    Stock Trading Environment for OpenAI gymnasium
 
     Price: (T, N)
     Tech:  (T, N, F)
+    Vix:   (T,) or None
+    Turb:  (T,) or None
     """
 
     def __init__(
         self,
         price_array: np.ndarray,
         tech_array: np.ndarray,
+        vix_array: Optional[np.ndarray] = None,
+        turbulence_array: Optional[np.ndarray] = None,
+        max_stocks: np.ndarray | int = 1000,
         initial_capital: float = 1e6,
         transaction_cost: float = 1e-3,
-        position_limit: list[float] | float | np.ndarray = 0.2,
         volatility_penalty: float = 0.0,
+        turbulence_threshold: Optional[float] = None,
         eps: float = 1e-8,
     ):
         super().__init__()
@@ -38,27 +43,36 @@ class MultiAssetTradingEnv(gym.Env):
         self.T, self.N = price_array.shape
         _, _, self.F = tech_array.shape
 
-        if isinstance(position_limit, float):
-            # same limit for all assets
-            self.position_limit = np.full(self.N, position_limit, dtype=np.float32)
+        if vix_array is not None:
+            assert len(vix_array.shape) == 1, "vix_array must be (T,)"
+            assert vix_array.shape[0] == self.T, "VIX time dimension mismatch"
+            self.vix = vix_array
         else:
-            assert len(position_limit) == self.N, "position_limit list must match number of assets"
-            self.position_limit = np.array(position_limit, dtype=np.float32)
+            self.vix = np.zeros(self.T, dtype=np.float32)
 
-        total_exposure = self.position_limit.sum()
-        if total_exposure > 1.0:
-            # Normalize to ensure total exposure does not exceed 100%
-            self.position_limit /= self.position_limit.sum()
+        if turbulence_array is not None:
+            assert len(turbulence_array.shape) == 1, "turbulence_array must be (T,)"
+            assert turbulence_array.shape[0] == self.T, "Turbulence time dimension mismatch"
+            self.turbulence = turbulence_array
+        else:
+            self.turbulence = np.zeros(self.T, dtype=np.float32)
+
+        if isinstance(max_stocks, int):
+            self.max_stocks = np.full(self.N, max_stocks, dtype=np.int32)
+        else:
+            assert len(max_stocks) == self.N, "max_stocks must have length N"
+            self.max_stocks = np.array(max_stocks, dtype=np.int32)
 
         self.initial_capital = initial_capital
         self.tc = transaction_cost
         self.vol_penalty = volatility_penalty
+        self.turbulence_threshold = turbulence_threshold
 
         self.max_step = self.T - 1
 
         # portfolio state
         self.cash = initial_capital
-        self.shares = np.zeros(self.N, dtype=np.float32)
+        self.shares = np.zeros(self.N, dtype=np.int32)
         self.time = 0
 
         # Action space
@@ -70,7 +84,7 @@ class MultiAssetTradingEnv(gym.Env):
         )
 
         # Observation space
-        obs_dim = 1 + self.N * (1 + 1 + self.F)  # cash + shares + prices + indicators
+        obs_dim = 3 + self.N * (2 + self.F)
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
@@ -83,7 +97,7 @@ class MultiAssetTradingEnv(gym.Env):
         super().reset(seed=seed)
 
         self.cash = self.initial_capital
-        self.shares = np.zeros(self.N, dtype=np.float32)
+        self.shares = np.zeros(self.N, dtype=np.int32)
         self.time = 0
 
         return self._get_obs(), {}
@@ -92,6 +106,10 @@ class MultiAssetTradingEnv(gym.Env):
     def step(self, action):
 
         action = np.clip(action, -1.0, 1.0)
+
+        if (self.turbulence_threshold is not None and
+            self.turbulence[self.time] > self.turbulence_threshold):
+            action = np.minimum(action, 0)  # Force sell in high turbulence
 
         price = self.price[self.time]
         current_asset = self._portfolio_value(price)
@@ -102,10 +120,11 @@ class MultiAssetTradingEnv(gym.Env):
         sell_idx = np.where(sell_mask)[0]
         buy_idx = np.where(buy_mask)[0]
 
+        # First sell to free up cash
         for i in sell_idx:
             self._sell_asset(i, action)
 
-        # Buy action
+        # Then buy
         for i in buy_idx:
             self._buy_asset(i, action)
 
@@ -129,7 +148,10 @@ class MultiAssetTradingEnv(gym.Env):
     def _sell_asset(self, index, action):
 
         price = self.price[self.time]
-        sell_shares = min(self.shares[index], -action[index] * self.shares[index])
+        sell_shares = min(
+            self.shares[index], 
+            int(-action[index] * self.shares[index])
+        )
         self.shares[index] -= sell_shares
         self.cash += sell_shares * price[index] * (1 - self.tc)
 
@@ -138,18 +160,12 @@ class MultiAssetTradingEnv(gym.Env):
 
         price = self.price[self.time]
         total_asset = self._portfolio_value(price)
-        max_exposure = self.position_limit[index] * total_asset
 
-        current_value = self.shares[index] * price[index]
-        remaining = max(0, max_exposure - current_value)
-
-        max_shares = remaining / price[index]
-
-        desired_shares = action[index] * total_asset / price[index]
-
+        desired_shares = int(action[index] * total_asset / price[index])
+        max_shares = self.max_stocks[index] - self.shares[index]
         buy_shares = min(
             desired_shares,
-            self.cash / (price[index] * (1 + self.tc)),
+            self.cash // (price[index] * (1 + self.tc)),
             max_shares
         )
 
@@ -167,6 +183,8 @@ class MultiAssetTradingEnv(gym.Env):
             self.shares.copy(),
             price.copy(),
             tech.flatten().copy(),
+            [self.vix[self.time]],
+            [self.turbulence[self.time]],
         ]).astype(np.float32)
 
         return obs
@@ -174,7 +192,16 @@ class MultiAssetTradingEnv(gym.Env):
 
     def _reward(self, prev_asset, next_asset):
 
-        return np.log((next_asset + self.eps) / (prev_asset + self.eps))
+        exposure = (
+            np.sum(self.shares * self.price[self.time]) / 
+            (prev_asset + self.eps)
+        )
+        vol_penalty = (
+            self.vol_penalty * 
+            exposure * 
+            self.vix[self.time]
+        )
+        return np.log((next_asset + self.eps) / (prev_asset + self.eps)) - vol_penalty
 
 
     def _portfolio_value(self, price):

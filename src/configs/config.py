@@ -60,10 +60,10 @@ A2C_PARAMS = {
 
 PPO_PARAMS = {
     "n_steps": 2048,
-    "ent_coef": 0.005,
-    "learning_rate": 3e-4,
+    "ent_coef": 0.01,
+    "learning_rate": 1e-5,
     "batch_size": 64,
-    "target_kl": 0.1,
+    "target_kl": 0.02,
 }
 
 DDPG_PARAMS = {
@@ -160,7 +160,15 @@ OFF_POLICY_TRANSFORMER_PARAMS = {
 # ==================================
 # Environment parameters
 # ==================================
-MULTI_ASSET_ENV_PARAMS = {
+STOCK_TRADING_ENV_PARAMS = {
+    "initial_capital": 1e6,
+    "transaction_cost": 1e-3,
+    "volatility_penalty": 0.0,
+    "turbulence_threshold": None,
+    "max_stocks": 1000,
+}
+
+CRYPTO_TRADING_ENV_PARAMS = {
     "initial_capital": 1e6,
     "transaction_cost": 1e-3,
     "position_limit": 0.2,
