@@ -57,23 +57,24 @@ A2C_PARAMS = {
 }
 PPO_PARAMS = {
     "n_steps": 2048,
-    "ent_coef": 0.01,
-    "learning_rate": 0.00025,
+    "ent_coef": 0.005,
+    "learning_rate": 1e-5,
     "batch_size": 64,
+    "target_kl": 0.02,
 }
 DDPG_PARAMS = {
     "batch_size": 128, 
-    "buffer_size": 50000, 
+    "buffer_size": 50_000, 
     "learning_rate": 0.001
 }
 TD3_PARAMS = {
     "batch_size": 100, 
-    "buffer_size": 1000000, 
+    "buffer_size": 100_000, 
     "learning_rate": 0.001
 }
 SAC_PARAMS = {
     "batch_size": 64,
-    "buffer_size": 100000,
+    "buffer_size": 100_000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
@@ -88,23 +89,39 @@ ERL_PARAMS = {
     "eval_gap": 30,
     "eval_times": 64,
 }
+RECURRENT_PPO_PARAMS = {
+    "learning_rate": 3e-5,
+    "n_steps": 512,
+    "batch_size": 64,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "target_kl": 0.02,
+    "ent_coef": 0.001,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "seed": 312,
+}
 
 
 # ==================================
 # Normalization parameters
 # ==================================
 ROLLING_WINDOW_NORM_PARAMS = {
-    "obs_window": 100,
-    "reward_window": 100,
+    "obs_window": 500,
+    "reward_window": 500,
     "norm_obs": True,
-    "norm_reward": True,
+    "norm_reward": False,
 }
 
 
 # ==================================
 # Policy configurations
 # ==================================
-TRANSFORMER_POLICY_PARAMS = {
+
+# Separate policy kwargs per algo family
+ON_POLICY_TRANSFORMER_PARAMS = {
     "features_extractor_kwargs": {
         "d_model": 128,
         "nhead": 4,
@@ -112,7 +129,18 @@ TRANSFORMER_POLICY_PARAMS = {
         "dim_feedforward": 256,
         "dropout": 0.1,
     },
-    "net_arch": dict(pi=[64, 64], vf=[64, 64]),
+    "net_arch": dict(pi=[64, 64], vf=[64, 64]),  # PPO, A2C
+}
+
+OFF_POLICY_TRANSFORMER_PARAMS = {
+    "features_extractor_kwargs": {
+        "d_model": 128,
+        "nhead": 4,
+        "num_layers": 2,
+        "dim_feedforward": 256,
+        "dropout": 0.1,
+    },
+    "net_arch": dict(pi=[64, 64], qf=[64, 64]),   # DDPG, TD3, SAC
 }
 
 

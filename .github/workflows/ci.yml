@@ -5,8 +5,45 @@ on:
   pull_request:
 
 jobs:
-  train-eval:
+  test-agent:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - model: ppo
+            policy: MlpPolicy
+
+          - model: ppo
+            policy: TransformerPolicy
+
+          - model: a2c
+            policy: MlpPolicy
+
+          - model: a2c
+            policy: TransformerPolicy
+
+          - model: sac
+            policy: MlpPolicy
+
+          - model: sac
+            policy: TransformerPolicy
+
+          - model: td3
+            policy: MlpPolicy
+
+          - model: td3
+            policy: TransformerPolicy
+
+          - model: ddpg
+            policy: MlpPolicy
+
+          - model: ddpg
+            policy: TransformerPolicy
+
+          - model: recurrent_ppo
+            policy: MlpLstmPolicy
 
     steps:
       - name: Checkout repo
@@ -19,13 +56,46 @@ jobs:
           activate-environment: finrl_env
           environment-file: environment.yml
 
-      - name: Run main script (train mode)
+      - name: Set runtime variables
         shell: bash -l {0}
         run: |
-          PYTHONPATH=src python3 "src/main.py" --mode=train --total-timesteps=1000
+          MODEL_NAME="${{ matrix.model }}"
+          POLICY="${{ matrix.policy }}"
+          MODEL_PATH="trained_models/${MODEL_NAME}_${POLICY}.zip"
+          echo "MODEL_NAME=$MODEL_NAME" >> $GITHUB_ENV
+          echo "POLICY=$POLICY" >> $GITHUB_ENV
+          echo "MODEL_PATH=$MODEL_PATH" >> $GITHUB_ENV
 
-      - name: Upload training logs
+      - name: Train the agent
+        shell: bash -l {0}
+        run: |
+          PYTHONPATH=src python3 "src/train.py" \
+            --total-timesteps=1000 \
+            --model-name="$MODEL_NAME" \
+            --policy="$POLICY" \
+            --model-save-path="$MODEL_PATH"
+
+      - name: Backtest the agent
+        shell: bash -l {0}
+        run: |
+          PYTHONPATH=src python3 "src/backtest.py" \
+            --model-path="$MODEL_PATH" \
+            --model-name="$MODEL_NAME" \
+            --policy="$POLICY"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: training-logs
-          path: logs/
+          name: artifacts-${{ matrix.model }}-${{ matrix.policy }}
+          path: |
+            logs/
+            trained_models/
+            results/
+
+  test-agent-summary:
+    runs-on: ubuntu-latest
+    needs: test-agent
+
+    steps:
+      - name: Summary
+        run: echo "All agent tests completed successfully"

@@ -22,6 +22,7 @@ class MultiAssetTradingEnv(gym.Env):
         transaction_cost: float = 1e-3,
         position_limit: list[float] | float | np.ndarray = 0.2,
         volatility_penalty: float = 0.0,
+        eps: float = 1e-8,
     ):
         super().__init__()
 
@@ -32,6 +33,7 @@ class MultiAssetTradingEnv(gym.Env):
 
         self.price = price_array
         self.tech = tech_array
+        self.eps = eps
 
         self.T, self.N = price_array.shape
         _, _, self.F = tech_array.shape
@@ -43,8 +45,10 @@ class MultiAssetTradingEnv(gym.Env):
             assert len(position_limit) == self.N, "position_limit list must match number of assets"
             self.position_limit = np.array(position_limit, dtype=np.float32)
 
-        # Normalize to add up to 1.0
-        self.position_limit /= self.position_limit.sum()
+        total_exposure = self.position_limit.sum()
+        if total_exposure > 1.0:
+            # Normalize to ensure total exposure does not exceed 100%
+            self.position_limit /= self.position_limit.sum()
 
         self.initial_capital = initial_capital
         self.tc = transaction_cost
@@ -170,7 +174,7 @@ class MultiAssetTradingEnv(gym.Env):
 
     def _reward(self, prev_asset, next_asset):
 
-        return next_asset - prev_asset
+        return np.log((next_asset + self.eps) / (prev_asset + self.eps))
 
 
     def _portfolio_value(self, price):

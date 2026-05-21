@@ -69,7 +69,7 @@ _POLICY_BASE_MAP = {
 def make_transformer_policy(model_name: str):
     """
     Returns a TransformerPolicy class with the correct base
-    for the given algorithm.
+    for the given model.
 
     Usage:
         policy_cls = make_transformer_policy("ppo")
@@ -85,7 +85,7 @@ def make_transformer_policy(model_name: str):
 
     class TransformerPolicy(base):
         def __init__(self, *args, **kwargs):
-            print(f"[TransformerPolicy] base={base.__name__}, algo={model_name}")
+            print(f"[TransformerPolicy] base={base.__name__}, model_name={model_name}")
             kwargs["features_extractor_class"]  = _TransformerFeatureExtractor
             super().__init__(*args, **kwargs)
 

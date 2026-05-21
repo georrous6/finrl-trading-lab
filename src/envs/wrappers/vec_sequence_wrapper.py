@@ -16,6 +16,7 @@ class VecSequenceWrapper(VecEnvWrapper):
         obs_space = venv.observation_space
         assert len(obs_space.shape) == 1, \
             "VecSequenceWrapper expects flat obs (obs_dim,)"
+        assert seq_len > 0, "seq_len must be positive"
 
         self.seq_len = seq_len
         self.obs_dim = obs_space.shape[0]
