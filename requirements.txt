@@ -12,3 +12,4 @@ stockstats>=0.4.0
 
 tensorboard
 matplotlib
+python-dotenv

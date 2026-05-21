@@ -91,7 +91,7 @@ class MultiAssetTradingEnv(gym.Env):
 
     def step(self, action):
 
-        # action: (N,) in [-1, 1], negative means sell, positive means buy
+        action = np.clip(action, -1.0, 1.0)
 
         price = self.price[self.time]
         current_asset = self._portfolio_value(price)

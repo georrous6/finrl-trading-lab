@@ -22,9 +22,6 @@ TRAIN_END_DATE = "2025-12-31"
 TEST_START_DATE = "2026-01-01"
 TEST_END_DATE = "2026-03-20"
 
-TRADE_START_DATE = "2026-01-01"
-TRADE_END_DATE = "2026-03-20"
-
 TIME_INTERVAL = "1D"  # "1D", "1H", "5M", "1M"
 
 # stockstats technical indicator column names
@@ -44,41 +41,56 @@ INDICATORS = [
 # ==================================
 # Training config
 # ==================================
-TOTAL_TIMESTEPS = 100_000
+TOTAL_TIMESTEPS = 300_000
 SEQUENCE_LENGTH = 10
+
 
 # ==================================
 # Algorithm Parameters
 # ==================================
 A2C_PARAMS = {
-    "n_steps": 5, 
-    "ent_coef": 0.01, 
-    "learning_rate": 0.0007
+    "n_steps": 128,
+    "learning_rate": 1e-5,
+    "ent_coef": 0.01,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "gae_lambda": 0.95,
+    "gamma": 0.99,
 }
+
 PPO_PARAMS = {
     "n_steps": 2048,
     "ent_coef": 0.005,
-    "learning_rate": 1e-5,
+    "learning_rate": 3e-4,
     "batch_size": 64,
-    "target_kl": 0.02,
+    "target_kl": 0.1,
 }
+
 DDPG_PARAMS = {
-    "batch_size": 128, 
-    "buffer_size": 50_000, 
-    "learning_rate": 0.001
+    "batch_size": 256,
+    "buffer_size": 20_000,
+    "learning_rate": 1e-5,
+    "max_grad_norm": 10,
+    "learning_starts": 1000,
 }
+
 TD3_PARAMS = {
-    "batch_size": 100, 
-    "buffer_size": 100_000, 
-    "learning_rate": 0.001
+    "batch_size": 256,
+    "buffer_size": 20_000,
+    "learning_rate": 1e-5,
+    "max_grad_norm": 10,
+    "learning_starts": 1000,
 }
+
 SAC_PARAMS = {
-    "batch_size": 64,
-    "buffer_size": 100_000,
-    "learning_rate": 0.0001,
-    "learning_starts": 100,
-    "ent_coef": "auto_0.1",
+    "batch_size": 256,
+    "buffer_size": 20_000,
+    "learning_rate": 1e-5,
+    "learning_starts": 1000,
+    "ent_coef": "auto",
+    "max_grad_norm": 10,
 }
+
 ERL_PARAMS = {
     "learning_rate": 3e-5,
     "batch_size": 2048,
@@ -89,6 +101,7 @@ ERL_PARAMS = {
     "eval_gap": 30,
     "eval_times": 64,
 }
+
 RECURRENT_PPO_PARAMS = {
     "learning_rate": 3e-5,
     "n_steps": 512,
@@ -163,14 +176,3 @@ TIME_ZONE_USEASTERN = "US/Eastern"  # Dow, Nasdaq, SP
 TIME_ZONE_PARIS = "Europe/Paris"  # CAC,
 TIME_ZONE_BERLIN = "Europe/Berlin"  # DAX, TECDAX, MDAX, SDAX
 TIME_ZONE_JAKARTA = "Asia/Jakarta"  # LQ45
-TIME_ZONE_SELFDEFINED = "xxx"  # If neither of the above is your time zone, you should define it, and set USE_TIME_ZONE_SELFDEFINED 1.
-USE_TIME_ZONE_SELFDEFINED = 0  # 0 (default) or 1 (use the self defined)
-
-
-# ==================================
-# Parameters for data sources
-# ==================================
-ALPACA_API_KEY = "xxx"  # your ALPACA_API_KEY
-ALPACA_API_SECRET = "xxx"  # your ALPACA_API_SECRET
-ALPACA_API_BASE_URL = "https://paper-api.alpaca.markets"  # alpaca url
-BINANCE_BASE_URL = "https://data.binance.vision/"  # binance url

@@ -52,11 +52,16 @@ def build_parser(mode: str) -> ArgumentParser:
     )
 
     if mode == "train":
-        return _add_train_args(parser)
+        parser = _add_train_args(parser)
     elif mode == "backtest":
-        return _add_test_args(parser)
+        parser = _add_test_args(parser)
+    elif mode == "trade":
+        parser = _add_test_args(parser)
+        parser = _add_trade_args(parser)
     else:
         raise ValueError(f"Unknown mode '{mode}'. Choose 'train' or 'backtest'.")
+
+    return parser
 
 
 def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
@@ -87,6 +92,19 @@ def _add_test_args(parser: ArgumentParser) -> ArgumentParser:
         metavar="MODEL_PATH",
         type=str,
         required=True,
+    )
+    return parser
+
+
+def _add_trade_args(parser: ArgumentParser) -> ArgumentParser:
+    parser.add_argument(
+        "--trading-interval",
+        dest="trading_interval",
+        help="trading interval for live trading (e.g. '1m', '5m', '1h')",
+        metavar="TRADING_INTERVAL",
+        type=str,
+        default="1m",
+        choices=["1m", "5m", "15m", "1h", "1d"],
     )
     return parser
 
