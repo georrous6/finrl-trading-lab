@@ -13,6 +13,14 @@ def build_parser() -> ArgumentParser:
 
     # Add common arguments
     parser.add_argument(
+        "--asset-type",
+        dest="asset_type",
+        help="type of asset: crypto or stock",
+        metavar="ASSET_TYPE",
+        choices=["crypto", "stock"],
+        default="crypto",
+    )
+    parser.add_argument(
         "--model-name",
         dest="model_name",
         help="model name, a2c, ppo, ddpg, td3, sac, recurrent_ppo",
@@ -45,18 +53,6 @@ def build_parser() -> ArgumentParser:
         type=int,
         choices=[0, 1, 2],
         default=1,
-    )
-    parser.add_argument(
-        "--no-vix",
-        dest="no_vix",
-        help="exclude VIX data",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--no-turbulence",
-        dest="no_turbulence",
-        help="exclude turbulence index data",
-        action="store_true",
     )
 
     return parser
@@ -98,6 +94,7 @@ def get_data(
         ).fetch_data()
 
         print(f"\n=== Raw data (shape: {df_raw.shape}) ===")
+        print(f"Columns: {df_raw.columns.tolist()}")
         print(df_raw.head())
 
         processed = fe.preprocess_data(df_raw)

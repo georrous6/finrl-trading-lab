@@ -22,7 +22,7 @@ TRAIN_END_DATE = "2025-12-31"
 TEST_START_DATE = "2026-01-01"
 TEST_END_DATE = "2026-03-20"
 
-TIME_INTERVAL = "1D"  # "1D", "1H", "5M", "1M"
+TIME_INTERVAL = "1d"  # "1d", "1h", "5m", "1m"
 
 # stockstats technical indicator column names
 # check https://pypi.org/project/stockstats/ for different names
@@ -70,7 +70,6 @@ DDPG_PARAMS = {
     "batch_size": 256,
     "buffer_size": 20_000,
     "learning_rate": 1e-5,
-    "max_grad_norm": 10,
     "learning_starts": 1000,
 }
 
@@ -78,7 +77,6 @@ TD3_PARAMS = {
     "batch_size": 256,
     "buffer_size": 20_000,
     "learning_rate": 1e-5,
-    "max_grad_norm": 10,
     "learning_starts": 1000,
 }
 
@@ -88,7 +86,6 @@ SAC_PARAMS = {
     "learning_rate": 1e-5,
     "learning_starts": 1000,
     "ent_coef": "auto",
-    "max_grad_norm": 10,
 }
 
 ERL_PARAMS = {
@@ -154,6 +151,20 @@ OFF_POLICY_TRANSFORMER_PARAMS = {
         "dropout": 0.1,
     },
     "net_arch": dict(pi=[64, 64], qf=[64, 64]),   # DDPG, TD3, SAC
+}
+
+
+# ==================================
+# Asset-specific data parameters
+# ==================================
+CRYPTO_DATA_PARAMS = {
+    "use_vix": False,
+    "use_turbulence": False,
+}
+
+STOCK_DATA_PARAMS = {
+    "use_vix": True,
+    "use_turbulence": True,
 }
 
 
