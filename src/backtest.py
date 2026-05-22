@@ -7,7 +7,7 @@ from agents.drl_agent import DRLAgent
 from configs import config
 from envs.env_stock_trading import StockTradingEnv
 from envs.env_crypto_trading import CryptoTradingEnv
-from configs.config_tickers import (SINGLE_TICKER,
+from configs.config_tickers import (CRYPTO_TICKERS,
                                     STOCK_TICKERS)
 from utils.common import (make_directories,
                           build_parser, 
@@ -42,7 +42,7 @@ def main() -> int:
 
     if options.asset_type == "crypto":
         data = get_data(
-            ticker_list=SINGLE_TICKER,
+            ticker_list=CRYPTO_TICKERS,
             tech_indicator_list=config.INDICATORS,
             interval=config.TIME_INTERVAL,
             start_date=config.TEST_START_DATE,

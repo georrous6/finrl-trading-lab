@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 # ==================================
-# Files and directories
+# Output directories
 # ==================================
-TRAIN_DATA_FILE = "train_data.csv"
-TEST_DATA_FILE = "test_data.csv"
-TRADE_DATA_FILE = "trade_data.csv"
 
 DATA_SAVE_DIR = "datasets"
 TRAINED_MODEL_DIR = "trained_models"
 LOG_DIR = "logs"
-RESULTS_DIR = "results"
 
 # ==================================
 # Data parameters

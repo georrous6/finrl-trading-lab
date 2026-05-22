@@ -18,7 +18,7 @@ def build_parser() -> ArgumentParser:
         help="type of asset: crypto or stock",
         metavar="ASSET_TYPE",
         choices=["crypto", "stock"],
-        default="crypto",
+        default="stock",
     )
     parser.add_argument(
         "--model-name",
@@ -29,11 +29,13 @@ def build_parser() -> ArgumentParser:
         default="ppo",
     )
     parser.add_argument(
-        "--policy",
-        dest="policy",
-        help="policy architecture, MlpPolicy, MlpLstmPolicy, TransformerPolicy",
-        metavar="POLICY",
-        choices=["MlpPolicy", "MlpLstmPolicy", "TransformerPolicy"],
+        "--policy-name",
+        dest="policy_name",
+        help="policy architecture, MlpPolicy, MlpLstmPolicy, "
+        "TransformerPolicy, MlpTransformerPolicy",
+        metavar="POLICY_NAME",
+        choices=["MlpPolicy", "MlpLstmPolicy", 
+                 "TransformerPolicy", "MlpTransformerPolicy"],
         default="TransformerPolicy",
     )
     parser.add_argument(

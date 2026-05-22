@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 from argparse import ArgumentParser
+import numpy as np
 
 from agents.drl_agent import DRLAgent
 from configs import config
 from envs.env_crypto_trading import CryptoTradingEnv
 from envs.env_stock_trading import StockTradingEnv
-from configs.config_tickers import (SINGLE_TICKER, 
+from envs.assembly import make_env
+from policies.factory import make_policy
+from configs.config_tickers import (CRYPTO_TICKERS, 
                                     STOCK_TICKERS)
 from utils.common import (make_directories, 
                           build_parser, 
@@ -51,48 +54,56 @@ def main() -> int:
                     f"{options.asset_type}_{mode}_data.csv")
 
     if options.asset_type == "crypto":
-        data = get_data(
-            ticker_list=SINGLE_TICKER,
-            tech_indicator_list=config.INDICATORS,
-            interval=config.TIME_INTERVAL,
-            start_date=config.TRAIN_START_DATE,
-            end_date=config.TRAIN_END_DATE,
-            data_path=data_path,
-            **config.CRYPTO_DATA_PARAMS,
-        )
-
-        env = CryptoTradingEnv(
-            price_array=data['price_array'],
-            tech_array=data['tech_array'],
-            **config.CRYPTO_TRADING_ENV_PARAMS,
-        )
+        ticker_list = CRYPTO_TICKERS
+        env_cls = CryptoTradingEnv
+        data_params = config.CRYPTO_DATA_PARAMS
+        env_params = config.CRYPTO_TRADING_ENV_PARAMS
     else:  # stock
-        data = get_data(
-            ticker_list=STOCK_TICKERS,
-            tech_indicator_list=config.INDICATORS,
-            interval=config.TIME_INTERVAL,
-            start_date=config.TRAIN_START_DATE,
-            end_date=config.TRAIN_END_DATE,
-            data_path=data_path,
-            **config.STOCK_DATA_PARAMS,
-        )
+        ticker_list = STOCK_TICKERS
+        env_cls = StockTradingEnv
+        data_params = config.STOCK_DATA_PARAMS
+        env_params = config.STOCK_TRADING_ENV_PARAMS
 
-        env = StockTradingEnv(
-            price_array=data['price_array'],
-            tech_array=data['tech_array'],
-            vix_array=data.get('vix_array'),
-            turbulence_array=data.get('turbulence_array'),
-            **config.STOCK_TRADING_ENV_PARAMS,
-        )
+
+    data = get_data(
+        ticker_list=ticker_list,
+        tech_indicator_list=config.INDICATORS,
+        interval=config.TIME_INTERVAL,
+        start_date=config.TRAIN_START_DATE,
+        end_date=config.TRAIN_END_DATE,
+        data_path=data_path,
+        **data_params,
+    )
+
+    env = env_cls(**data, **env_params)
+
+    kwargs = {}
+    if options.policy_name == "MlpTransformerPolicy":
+        N = len(ticker_list)
+        mask = np.ones(N, dtype=bool)
+        mask[:1+N] = False  # don't mask cash or shares
+        kwargs["obs_mask"] = mask
+
+    policy, policy_kwargs, requires_sequence = make_policy(
+        model_name=options.model_name,
+        policy_name=options.policy_name,
+        **kwargs,
+    )
+
+    print(f'Policy kwargs: {policy_kwargs}')
+
+    env = make_env(env=env, 
+                   norm=options.norm, 
+                   seq_len=config.SEQUENCE_LENGTH,
+                   requires_sequence=requires_sequence)
 
     agent = DRLAgent(
         model_name=options.model_name,
-        policy_name=options.policy,
+        policy=policy,
         env=env,
         mode=mode,
-        seq_len=config.SEQUENCE_LENGTH,
-        norm=options.norm,
         verbose=options.verbose,
+        policy_kwargs=policy_kwargs,
     )
 
     agent.train(total_timesteps=options.total_timesteps, 

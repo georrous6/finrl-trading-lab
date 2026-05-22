@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-SINGLE_TICKER = ["BTC-USD"]
+CRYPTO_TICKERS = ["BTC-USD"]
 
 # Dow 30 constituents in 2026/03/20
 STOCK_TICKERS = [

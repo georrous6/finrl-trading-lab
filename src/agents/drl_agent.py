@@ -5,41 +5,9 @@ import numpy as np
 from pathlib import Path
 from sb3_contrib import RecurrentPPO
 
-from policies.transformer_policy import make_transformer_policy
 from utils.loggers import TrainingLogger, BacktestLogger
-from envs.assembly import make_env
 from configs import config
 
-
-_POLICY_MAP = {
-    "MlpPolicy": {
-        "type": "builtin",
-        "requires_sequence": False,
-        "cls": None,
-        "kwargs": {},  # use kwargs from _MODEL_MAP
-        "supported_models": {"ppo", "a2c", "td3", "ddpg", "sac"},
-    },
-    "MlpLstmPolicy": {
-        "type": "builtin",
-        "requires_sequence": False,
-        "cls": None,
-        "kwargs": {},  # use kwargs from _MODEL_MAP
-        "supported_models": {"recurrent_ppo"},
-    },
-    "TransformerPolicy": {
-        "type": "custom",
-        "requires_sequence": True,
-        "cls": make_transformer_policy,
-        "kwargs": {
-            "ppo": config.ON_POLICY_TRANSFORMER_PARAMS,
-            "a2c": config.ON_POLICY_TRANSFORMER_PARAMS,
-            "td3": config.OFF_POLICY_TRANSFORMER_PARAMS,
-            "ddpg": config.OFF_POLICY_TRANSFORMER_PARAMS,
-            "sac": config.OFF_POLICY_TRANSFORMER_PARAMS,
-        },
-        "supported_models": {"ppo", "a2c", "td3", "ddpg", "sac"},
-    }
-}
 
 _MODEL_MAP = {
     "ppo":  {
@@ -75,39 +43,28 @@ class DRLAgent:
 
     Args:
         model_name:      Model name -- 'ppo', 'a2c', 'sac', 'td3', 'ddpg'
-        policy_name:     Policy name -- 'TransformerPolicy', 'MlpPolicy', 'LstmMlpPolicy'
+        policy:          Built-in or custom policy class
         env:             Raw gymnasium env (unwrapped)
         seq_len:         Lookback window for VecSequenceWrapper
         norm:            Normalizer name -- 'rolling_window' or None
         verbose:         SB3 verbosity
         mode:            One of 'train', 'backtest', 'trade'. Affects log directory.
+        policy_kwargs:   Optional dict of kwargs to pass to the policy constructor
     """
 
     def __init__(
         self,
         model_name: str,
-        policy_name: str,
+        policy,
         env: gym.Env,
         mode: Literal["train", "backtest", "trade"],
-        seq_len: int = 32,
-        norm: Optional[str] = "rolling_window",
         verbose: int = 1,
+        policy_kwargs: Optional[dict] = None,
     ):
         self.model_name = model_name
-        self.policy_name = policy_name
-
-        # validation
-        if policy_name not in _POLICY_MAP:
-            raise ValueError(f"Unknown policy '{policy_name}'. "
-                             f"Choose from: {list(_POLICY_MAP.keys())}")
-        if model_name not in _MODEL_MAP:
-            raise ValueError(f"Unknown model '{model_name}'. "
-                             f"Choose from: {list(_MODEL_MAP.keys())}")
-        if model_name not in _POLICY_MAP[policy_name]["supported_models"]:
-            raise ValueError(
-                f"Policy '{policy_name}' does not support model '{model_name}'. "
-                f"Supported models: {list(_POLICY_MAP[policy_name]['supported_models'])}"
-            )
+        self.policy_name = policy.display_name if callable(policy) else str(policy)
+        print(f"[DRLAgent] Initializing with model={self.model_name},"
+              f"policy={self.policy_name}")
 
         self.log_root = (
             Path(config.LOG_DIR) / 
@@ -118,21 +75,10 @@ class DRLAgent:
 
         model_kwargs = dict(_MODEL_MAP[model_name]["kwargs"])  # Copy, don't mutate config
 
-        if _POLICY_MAP[policy_name]["type"] == "custom":
-            policy_kwargs = _POLICY_MAP[policy_name]["kwargs"][model_name]
-            model_kwargs["policy_kwargs"] = policy_kwargs
-            policy = _POLICY_MAP[policy_name]["cls"](model_name)
-        else:
-            policy = policy_name
+        model_kwargs["policy_kwargs"] = policy_kwargs
 
-        # build environment
-        self.env = make_env(
-            env=env,
-            norm=norm,
-            seq_len=seq_len,
-            requires_sequence=_POLICY_MAP[policy_name]["requires_sequence"],
-        )
         self.verbose = verbose
+        self.env = env
 
         # trainable model
         model_cls = _MODEL_MAP[model_name]["cls"]

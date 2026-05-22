@@ -9,7 +9,7 @@ from stable_baselines3.sac.policies import SACPolicy
 
 class _TransformerFeatureExtractor(BaseFeaturesExtractor):
     """
-    Input:  obs (batch, lookback, obs_dim) <- directly from the env
+    Input: obs (batch, lookback, obs_dim) <- directly from the env
     Output: (batch, d_model) -> fed into SB3 actor/critic heads
     """
 
@@ -29,7 +29,7 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
 
         self.input_proj = nn.Linear(obs_dim, d_model)
 
-        # Learnable positional encoding — better than sinusoidal for RL
+        # Learnable positional encoding
         self.pos_embedding = nn.Parameter(th.zeros(1, lookback, d_model))
         nn.init.trunc_normal_(self.pos_embedding, std=0.02)
 
@@ -38,8 +38,8 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
             nhead=nhead,
             dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True,        # (batch, seq, d_model) convention
-            norm_first=True,         # Pre-LN: more stable training
+            batch_first=True,  # (batch, seq, d_model) convention
+            norm_first=True,  # Pre-LN: more stable training
         )
         self.transformer = nn.TransformerEncoder(
             encoder_layer,
@@ -59,11 +59,11 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
 
 
 _POLICY_BASE_MAP = {
-    "ppo":  ActorCriticPolicy,
-    "a2c":  ActorCriticPolicy,
-    "td3":  TD3Policy,
+    "ppo": ActorCriticPolicy,
+    "a2c": ActorCriticPolicy,
+    "td3": TD3Policy,
     "ddpg": TD3Policy,
-    "sac":  SACPolicy,
+    "sac": SACPolicy,
 }
 
 def make_transformer_policy(model_name: str):
@@ -89,7 +89,8 @@ def make_transformer_policy(model_name: str):
             kwargs["features_extractor_class"]  = _TransformerFeatureExtractor
             super().__init__(*args, **kwargs)
 
-    TransformerPolicy.__name__     = f"Transformer{base.__name__}"
+    TransformerPolicy.__name__ = f"Transformer{base.__name__}"
     TransformerPolicy.__qualname__ = TransformerPolicy.__name__
+    TransformerPolicy.display_name = "TransformerPolicy"
 
     return TransformerPolicy
