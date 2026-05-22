@@ -60,8 +60,11 @@ def make_policy(model_name: str,
         )
 
     policy_cls = _POLICY_MAP[policy_name]["cls"]
-    if policy_name == "MlpPolicy" and isinstance(observation_space, gym.spaces.Dict):
-        policy_cls = "MultiInputPolicy"
+    if isinstance(observation_space, gym.spaces.Dict):
+        if policy_name == "MlpPolicy":
+            policy_cls = "MultiInputPolicy"
+        elif policy_name == "MlpLstmPolicy":
+            policy_cls = "MultiInputLstmPolicy"
 
     policy = policy_cls(model_name) if callable(policy_cls) else policy_cls
     policy_kwargs = _POLICY_MAP[policy_name]["kwargs"].get(model_name, {})
