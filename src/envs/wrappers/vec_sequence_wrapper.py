@@ -35,6 +35,7 @@ class VecSequenceWrapper(VecEnvWrapper):
             dtype=np.float32,
         )
 
+        print(f'Wrapping VecEnv with VecSequenceWrapper: seq_len={seq_len}, obs_dim={self.obs_dim}')
         print(f'Initialized VecSequenceWrapper with {self.n_envs} envs and observation shape: {new_obs_space.shape}')
 
         super().__init__(venv, observation_space=new_obs_space)

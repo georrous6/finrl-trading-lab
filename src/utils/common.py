@@ -94,7 +94,6 @@ def get_data(
         ).fetch_data()
 
         print(f"\n=== Raw data (shape: {df_raw.shape}) ===")
-        print(f"Columns: {df_raw.columns.tolist()}")
         print(df_raw.head())
 
         processed = fe.preprocess_data(df_raw)

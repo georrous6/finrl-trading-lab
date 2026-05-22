@@ -35,16 +35,3 @@ STOCK_TICKERS = [
     "DIS",
     "SHW",
 ]
-
-CRYPTO_TICKERS = [
-    "BTC-USD",
-    "ETH-USD",
-    "BNB-USD",
-    "SOL-USD",
-    "XRP-USD",
-    "ADA-USD",
-    "DOGE-USD",
-    "AVAX-USD",
-    "DOT-USD",
-    "LINK-USD"
-]
