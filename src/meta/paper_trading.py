@@ -19,14 +19,10 @@ class StockPaperTrading:
 
     Observation structure MUST match training env:
 
-    [
-        cash,
-        shares,
-        prices,
-        indicators_flat,
-        vix,
-        turbulence
-    ]
+    {
+        "portfolio": [cash, shares...],
+        "market":    [prices..., indicators_flat..., vix, turbulence]
+    }
     """
 
     def __init__(
@@ -152,7 +148,7 @@ class StockPaperTrading:
         if (
             self.turbulence_threshold is not None
             and self.use_turbulence
-            and float(obs[-1]) > self.turbulence_threshold
+            and float(obs["market"][-1]) > self.turbulence_threshold
         ):
             action = np.minimum(action, 0.0)
 
@@ -293,16 +289,22 @@ class StockPaperTrading:
             limit=self.limit,
         )
 
-        obs = np.concatenate([
+        portfolio = np.concatenate([
             [cash],
             shares,
+        ]).astype(np.float32)
+
+        market = np.concatenate([
             prices,
             tech.flatten(),
             [vix],
             [turbulence],
         ]).astype(np.float32)
 
-        return obs
+        return {
+            "portfolio": portfolio,
+            "market": market,
+        }
 
 
     def get_prices(self) -> np.ndarray:

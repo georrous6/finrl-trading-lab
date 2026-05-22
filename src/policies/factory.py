@@ -2,6 +2,7 @@ from .mlp_transformer_policy import make_mlp_transformer_policy
 from .transformer_policy import make_transformer_policy
 from configs import config
 
+
 _POLICY_MAP = {
     "MlpPolicy": {
         "cls": "MlpPolicy",
@@ -42,7 +43,7 @@ _POLICY_MAP = {
 }
 
 
-def make_policy(model_name: str, policy_name: str, **kwargs):
+def make_policy(model_name: str, policy_name):
     if policy_name not in _POLICY_MAP:
         raise ValueError(
             f"Unknown policy '{policy_name}'. "
@@ -57,6 +58,5 @@ def make_policy(model_name: str, policy_name: str, **kwargs):
     policy_cls = _POLICY_MAP[policy_name]["cls"]
     policy = policy_cls(model_name) if callable(policy_cls) else policy_cls
     policy_kwargs = _POLICY_MAP[policy_name]["kwargs"].get(model_name, {})
-    policy_kwargs.update(kwargs)  # allow overrides from caller
     requires_sequence = _POLICY_MAP[policy_name]["requires_sequence"]
     return policy, policy_kwargs, requires_sequence

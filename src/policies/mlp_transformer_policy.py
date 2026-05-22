@@ -1,11 +1,25 @@
 import torch as th
-import numpy as np
 import torch.nn as nn
 import gymnasium as gym
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.td3.policies import TD3Policy
 from stable_baselines3.sac.policies import SACPolicy
+
+try:
+    from stable_baselines3.common.policies import MultiInputActorCriticPolicy
+except ImportError:
+    MultiInputActorCriticPolicy = ActorCriticPolicy
+
+try:
+    from stable_baselines3.td3.policies import MultiInputPolicy as TD3MultiInputPolicy
+except ImportError:
+    TD3MultiInputPolicy = TD3Policy
+
+try:
+    from stable_baselines3.sac.policies import MultiInputPolicy as SACMultiInputPolicy
+except ImportError:
+    SACMultiInputPolicy = SACPolicy
 
 
 class _MlpTransformerFeatureExtractor(BaseFeaturesExtractor):
@@ -19,8 +33,7 @@ class _MlpTransformerFeatureExtractor(BaseFeaturesExtractor):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Box,
-        obs_mask: np.ndarray,  # (obs_dim,) bool mask: True=market, False=portfolio
+        observation_space: gym.spaces.Space,
         d_model: int = 128,
         nhead: int = 4,
         num_layers: int = 2,
@@ -29,24 +42,16 @@ class _MlpTransformerFeatureExtractor(BaseFeaturesExtractor):
     ):
         super().__init__(observation_space, features_dim=d_model)
 
-        print(f"Observation shape: {observation_space.shape}")
+        if not isinstance(observation_space, gym.spaces.Dict):
+            raise ValueError("MlpTransformerFeatureExtractor expects Dict observation_space")
 
-        lookback, obs_dim = observation_space.shape
+        market_space = observation_space.spaces["market"]
+        portfolio_space = observation_space.spaces["portfolio"]
+        lookback = market_space.shape[0]
+        self.market_dim = market_space.shape[1]
+        self.portfolio_dim = portfolio_space.shape[1]
 
-        assert obs_mask.shape == (obs_dim,), "obs_mask must match obs_dim"
-
-        # Observation mask to split market vs portfolio features
-        self.obs_mask = obs_mask.astype(bool)
-
-        self.market_idx = np.where(self.obs_mask)[0]
-        self.portfolio_idx = np.where(~self.obs_mask)[0]
-
-        # Register indices as buffers so they move with the model's device
-        self.register_buffer("market_idx", th.tensor(self.market_idx, dtype=th.long)) 
-        self.register_buffer("portfolio_idx", th.tensor(self.portfolio_idx, dtype=th.long))
-
-        self.market_dim = len(self.market_idx)
-        self.portfolio_dim = len(self.portfolio_idx)
+        print(f"Observation dict shapes: portfolio={portfolio_space.shape}, market={market_space.shape}")
 
         # Market transformer
         self.market_proj = nn.Linear(self.market_dim, d_model)
@@ -86,14 +91,9 @@ class _MlpTransformerFeatureExtractor(BaseFeaturesExtractor):
             nn.ReLU(),
         )
 
-    def forward(self, obs: th.Tensor) -> th.Tensor:
-        """
-        obs: (batch, lookback, obs_dim)
-        """
-
-        # Split observation into market and portfolio parts
-        market = obs[:, :, self.market_idx]
-        portfolio = obs[:, -1, self.portfolio_idx]
+    def forward(self, obs) -> th.Tensor:
+        market = obs["market"]
+        portfolio = obs["portfolio"][:, -1, :]
 
         # Market -> Transformer
         x = self.market_proj(market)
@@ -110,11 +110,11 @@ class _MlpTransformerFeatureExtractor(BaseFeaturesExtractor):
 
 
 _POLICY_BASE_MAP = {
-    "ppo": ActorCriticPolicy,
-    "a2c": ActorCriticPolicy,
-    "td3": TD3Policy,
-    "ddpg": TD3Policy,
-    "sac": SACPolicy,
+    "ppo": MultiInputActorCriticPolicy,
+    "a2c": MultiInputActorCriticPolicy,
+    "td3": TD3MultiInputPolicy,
+    "ddpg": TD3MultiInputPolicy,
+    "sac": SACMultiInputPolicy,
 }
 
 def make_mlp_transformer_policy(model_name: str):

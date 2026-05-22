@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from argparse import ArgumentParser
-import numpy as np
 
 from agents.drl_agent import DRLAgent
 from configs import config
@@ -77,20 +76,10 @@ def main() -> int:
 
     env = env_cls(**data, **env_params)
 
-    kwargs = {}
-    if options.policy_name == "MlpTransformerPolicy":
-        N = len(ticker_list)
-        mask = np.ones(N, dtype=bool)
-        mask[:1+N] = False  # don't mask cash or shares
-        kwargs["obs_mask"] = mask
-
     policy, policy_kwargs, requires_sequence = make_policy(
         model_name=options.model_name,
         policy_name=options.policy_name,
-        **kwargs,
     )
-
-    print(f'Policy kwargs: {policy_kwargs}')
 
     env = make_env(env=env, 
                    norm=options.norm, 

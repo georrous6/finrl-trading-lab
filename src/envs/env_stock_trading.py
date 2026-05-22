@@ -84,13 +84,22 @@ class StockTradingEnv(gym.Env):
         )
 
         # Observation space
-        obs_dim = 3 + self.N * (2 + self.F)
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(obs_dim,),
-            dtype=np.float32,
-        )
+        portfolio_dim = 1 + self.N  # cash + shares
+        market_dim = self.N * (1 + self.F) + 2  # prices + indicators + vix + turbulence
+        self.observation_space = spaces.Dict({
+            "portfolio": spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(portfolio_dim,),
+                dtype=np.float32,
+            ),
+            "market": spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(market_dim,),
+                dtype=np.float32,
+            ),
+        })
 
 
     def reset(self, *, seed=None, options=None):
@@ -178,16 +187,22 @@ class StockTradingEnv(gym.Env):
         price = self.price[self.time]
         tech = self.tech[self.time]
 
-        obs = np.concatenate([
+        portfolio = np.concatenate([
             [self.cash],
             self.shares.copy(),
+        ]).astype(np.float32)
+
+        market = np.concatenate([
             price.copy(),
             tech.flatten().copy(),
             [self.vix[self.time]],
             [self.turbulence[self.time]],
         ]).astype(np.float32)
 
-        return obs
+        return {
+            "portfolio": portfolio,
+            "market": market,
+        }
 
 
     def _reward(self, prev_asset, next_asset):

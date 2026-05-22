@@ -69,13 +69,22 @@ class CryptoTradingEnv(gym.Env):
         )
 
         # Observation space
-        obs_dim = 1 + self.N * (1 + 1 + self.F)  # cash + shares + prices + indicators
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(obs_dim,),
-            dtype=np.float32,
-        )
+        portfolio_dim = 1 + self.N  # cash + shares
+        market_dim = self.N * (1 + self.F)  # prices + indicators
+        self.observation_space = spaces.Dict({
+            "portfolio": spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(portfolio_dim,),
+                dtype=np.float32,
+            ),
+            "market": spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(market_dim,),
+                dtype=np.float32,
+            ),
+        })
 
 
     def reset(self, *, seed=None, options=None):
@@ -161,14 +170,20 @@ class CryptoTradingEnv(gym.Env):
         price = self.price[self.time]
         tech = self.tech[self.time]
 
-        obs = np.concatenate([
+        portfolio = np.concatenate([
             [self.cash],
             self.shares.copy(),
+        ]).astype(np.float32)
+
+        market = np.concatenate([
             price.copy(),
             tech.flatten().copy(),
         ]).astype(np.float32)
 
-        return obs
+        return {
+            "portfolio": portfolio,
+            "market": market,
+        }
 
 
     def _reward(self, prev_asset, next_asset):

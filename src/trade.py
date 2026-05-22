@@ -4,9 +4,9 @@ from dotenv import dotenv_values
 from argparse import ArgumentParser
 
 from meta.paper_trading import StockPaperTrading
-from utils.common import build_parser, make_directories
+from utils.common import build_parser
 from configs import config
-from configs.config_tickers import DOW_30_TICKER
+from configs.config_tickers import STOCK_TICKERS
 
 
 def _add_trade_args(parser: ArgumentParser) -> ArgumentParser:
@@ -34,9 +34,6 @@ def main() -> int:
     parser = build_parser()
     parser = _add_trade_args(parser)
     options = parser.parse_args()
-    make_directories([
-        config.RESULTS_DIR
-    ])
 
     # Load environment variables
     env_vars = dotenv_values(".env")
@@ -46,7 +43,7 @@ def main() -> int:
     # initialize paper trading env
     paper_trading = StockPaperTrading(
         model_path=options.model_path,
-        ticker_list=DOW_30_TICKER,
+        ticker_list=STOCK_TICKERS,
         tech_indicator_list=config.INDICATORS,
         api_key=API_KEY,
         api_secret=API_SECRET,
@@ -56,8 +53,7 @@ def main() -> int:
         min_trade_fraction=0.05,
         timeframe=config.TIME_INTERVAL,
         limit=100,
-        use_vix=not options.no_vix,
-        use_turbulence=not options.no_turbulence,
+        **config.STOCK_DATA_PARAMS,
     )
 
     paper_trading.run()
