@@ -1,3 +1,5 @@
+import gymnasium as gym
+
 from .mlp_transformer_policy import make_mlp_transformer_policy
 from .transformer_policy import make_transformer_policy
 from configs import config
@@ -43,7 +45,9 @@ _POLICY_MAP = {
 }
 
 
-def make_policy(model_name: str, policy_name):
+def make_policy(model_name: str, 
+                policy_name: str, 
+                observation_space: gym.spaces.Space | None = None):
     if policy_name not in _POLICY_MAP:
         raise ValueError(
             f"Unknown policy '{policy_name}'. "
@@ -56,6 +60,9 @@ def make_policy(model_name: str, policy_name):
         )
 
     policy_cls = _POLICY_MAP[policy_name]["cls"]
+    if policy_name == "MlpPolicy" and isinstance(observation_space, gym.spaces.Dict):
+        policy_cls = "MultiInputPolicy"
+
     policy = policy_cls(model_name) if callable(policy_cls) else policy_cls
     policy_kwargs = _POLICY_MAP[policy_name]["kwargs"].get(model_name, {})
     requires_sequence = _POLICY_MAP[policy_name]["requires_sequence"]

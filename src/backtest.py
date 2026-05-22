@@ -68,6 +68,7 @@ def main() -> int:
     policy, policy_kwargs, requires_sequence = make_policy(
         model_name=options.model_name,
         policy_name=options.policy_name,
+        observation_space=env.observation_space,
     )
 
     env = make_env(

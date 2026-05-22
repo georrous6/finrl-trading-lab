@@ -160,7 +160,7 @@ CRYPTO_DATA_PARAMS = {
 
 STOCK_DATA_PARAMS = {
     "use_vix": True,
-    "use_turbulence": True,
+    "use_turbulence": False,
 }
 
 
