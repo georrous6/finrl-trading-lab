@@ -22,6 +22,7 @@ class CryptoTradingEnv(gym.Env):
         position_limit: list[float] | float | np.ndarray = 0.2,
         volatility_penalty: float = 0.0,
         eps: float = 1e-8,
+        **kwargs,
     ):
         super().__init__()
 
