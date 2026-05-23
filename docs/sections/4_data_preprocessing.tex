@@ -1,0 +1,114 @@
+\section{Data Representation and Preprocessing for Temporal Reinforcement Learning}
+
+The Transformer-based architectures require temporally structured observations rather
+than isolated environment states. However, the trading environments provide observations
+containing information only for the current timestep:
+\[
+s_t =
+[s_t^{portfolio}, s_t^{market}]
+\]
+without historical context.
+
+\subsection{Sequence Construction via Rolling Window Buffering}
+
+To enable temporal modeling, a sequence construction mechanism is introduced through the
+\texttt{VecSequenceWrapper}. The wrapper maintains a rolling buffer of the most recent
+$T$ observations for every parallel environment instance:
+\[
+S_t
+=
+[s_{t-T+1}, s_{t-T+2}, \dots, s_t]
+\]
+where $T=10$ in the experimental configuration.
+
+At each environment step, the oldest observation is removed and the newest state is
+appended, producing a sliding temporal window. Consequently, the policy receives a
+sequence of past states instead of a single observation.
+
+This mechanism is required only for temporal architectures (Transformers), since MLP and
+standard recurrent policies internally manage temporal information differently.
+
+\subsection{Online Rolling Window Normalization}
+
+Since financial variables exhibit substantial differences in scale (prices, holdings,
+portfolio values, technical indicators and rewards) and market distributions evolve
+continuously over time, training directly on raw observations may lead to unstable
+optimization and dominance of high-magnitude features.
+
+To address this issue, a rolling normalization mechanism is introduced through the
+\texttt{RollingWindowNorm} wrapper. Unlike static normalization approaches computed
+over the entire dataset, the proposed method maintains a fixed-size temporal buffer
+containing the most recent observations and computes normalization statistics online.
+
+Importantly, normalization is performed \textbf{independently for each feature
+dimension}. Consider an observation vector:
+\[
+x_t =
+[x_t^{(1)}, x_t^{(2)}, \dots, x_t^{(D)}]
+\]
+where $D$ denotes the feature dimensionality. For each feature $d$, the wrapper keeps
+a rolling history over the latest $W$ observations:
+\[
+\mathcal{B}_t^{(d)}
+=
+\{x_{t-W+1}^{(d)},\dots,x_t^{(d)}\}
+\]
+and computes feature-specific statistics:
+\[
+\mu_t^{(d)}
+=
+\frac{1}{W}
+\sum_{k=t-W+1}^{t}
+x_k^{(d)}
+\]
+
+\[
+\sigma_t^{(d)}
+=
+\sqrt{
+\frac{1}{W}
+\sum_{k=t-W+1}^{t}
+(x_k^{(d)})^2
+-
+(\mu_t^{(d)})^2
+}
+\]
+
+The normalized observation is then obtained element-wise:
+\[
+\hat{x}_t^{(d)}
+=
+\frac{
+x_t^{(d)}-\mu_t^{(d)}
+}
+{
+\sigma_t^{(d)}+\epsilon
+}
+\]
+
+Consequently, prices, portfolio quantities and technical indicators are normalized
+independently according to their own recent history rather than sharing global
+statistics.
+
+Reward normalization follows the same principle using an independent rolling buffer:
+\[
+\hat{r}_t
+=
+\frac{r_t-\mu_t^r}
+{\sigma_t^r+\epsilon
+}
+\]
+where $\mu_t^r$ and $\sigma_t^r$ are computed over recent rewards.
+
+A key practical advantage of this approach is that it is fully \textbf{online and
+self-contained}: the normalization statistics are never stored or fixed after training.
+Instead, they are continuously recomputed during both training and evaluation. This
+eliminates the need for a separate preprocessing step and avoids the common issue of
+mismatched training and test distributions, which is particularly pronounced in
+financial markets due to regime shifts and non-stationarity.
+
+This adaptive normalization strategy is therefore especially suitable for trading
+environments, where distributional shifts between training and testing data are
+expected rather than exceptional. By continuously adapting to recent market conditions,
+the wrapper improves stability and robustness of the learned policy under changing
+market regimes.

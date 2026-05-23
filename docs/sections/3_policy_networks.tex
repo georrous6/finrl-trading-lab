@@ -1,0 +1,127 @@
+\section{Policy Network Architectures}
+
+Financial markets exhibit strong temporal dependencies, non-stationary behavior, and 
+long-range interactions across assets and indicators. Consequently, the policy network
+must not only learn the mapping from states to actions, but also capture temporal market
+structure.
+
+To investigate the effect of temporal modeling in DRL trading, this work evaluates four
+policy families: standard MLP policies, recurrent LSTM policies, and two custom 
+Transformer-based feature extractors integrated into the Stable-Baselines3 framework.
+
+Standard MLP policies treat each observation independently:
+\[
+a_t = \pi(s_t)
+\]
+thus ignoring historical information. While computationally efficient, this assumption
+is restrictive in financial environments where decisions depend on previous market states.
+
+LSTM-based policies extend this formulation by introducing a hidden state:
+\[
+h_t = f(h_{t-1}, s_t)
+\]
+allowing information propagation through time. However, long temporal dependencies must
+be compressed into a fixed-size memory representation, which may lead to information loss.
+
+Transformer architectures overcome this limitation through self-attention, allowing each
+timestep to directly interact with all previous observations inside a lookback window.
+This enables explicit modeling of delayed market reactions, regime changes and cross-asset
+dependencies, making Transformers particularly suitable for multi-asset trading tasks.
+
+\subsection{Transformer Feature Extractor (Full Fusion Architecture)}
+
+The first proposed architecture is a fully Transformer-based feature extractor where
+portfolio and market information are processed jointly.
+
+For each timestep $t$, the observation consists of the concatenation of portfolio state
+and market features:
+\[
+x_t =
+[s_t^{portfolio}, s_t^{market}]
+\]
+
+A temporal window of length $T$ is constructed:
+\[
+X =
+[x_{t-T+1}, \dots, x_t]
+\]
+which forms the Transformer input.
+
+Each observation is projected into a latent representation of dimension
+$d_{model}=128$:
+\[
+z_t = W_{proj}x_t
+\]
+followed by addition of learnable positional embeddings:
+\[
+\tilde{z}_t = z_t + p_t
+\]
+to preserve temporal ordering.
+
+The resulting sequence is processed using a Transformer encoder composed of two encoder
+layers with four attention heads, feedforward dimension $256$, pre-layer normalization,
+and dropout $0.1$.
+
+The final latent representation is obtained from the output corresponding to the most
+recent timestep:
+\[
+h_t = Transformer(X)_T
+\]
+followed by Layer Normalization.
+
+This representation $h_t$ is used as a compact feature vector and is passed to the
+actor and critic networks of the underlying DRL algorithm to produce the policy
+distribution and value estimates.
+
+This architecture performs full feature fusion, allowing attention to jointly model
+portfolio evolution, market dynamics and cross-asset interactions within a unified
+representation space.
+
+\subsection{Hybrid MLP--Transformer Architecture}
+
+The second architecture introduces an explicit separation between sequential market
+information and instantaneous portfolio state.
+
+The market branch receives only market observations over the temporal window:
+\[
+X^{market}
+=
+[s_{t-T+1}^{market}, \dots, s_t^{market}]
+\]
+which are projected to $d_{model}=128$, combined with learnable positional embeddings
+and processed by the same Transformer encoder configuration used in the previous model.
+
+The resulting market embedding is extracted from the final timestep output:
+\[
+h_t^{market}
+=
+Transformer(X^{market})_T
+\]
+
+In parallel, portfolio information is processed independently using an MLP branch.
+The input consists only of the most recent portfolio state:
+\[
+h_t^{portfolio}
+=
+MLP(s_t^{portfolio})
+\]
+implemented using two fully connected layers of size $64$ with ReLU activations.
+
+The two latent representations are fused through concatenation:
+\[
+z_t
+=
+[h_t^{market}, h_t^{portfolio}]
+\]
+followed by a fully connected fusion layer projecting the representation back to
+$d_{model}=128$.
+
+The resulting fused embedding $z_t$ is passed to the actor and critic networks of the
+reinforcement learning algorithm, where it is used to compute action distributions and
+value estimates.
+
+This design is motivated by the different characteristics of the two information sources.
+Market observations are inherently sequential and benefit from temporal attention
+mechanisms, whereas portfolio information represents an instantaneous allocation state
+that does not require sequence modeling. Separating the branches reduces unnecessary
+coupling while preserving expressive capacity through the fusion stage.

@@ -1,7 +1,7 @@
 import gymnasium as gym
 
-from .mlp_transformer_policy import make_mlp_transformer_policy
-from .transformer_policy import make_transformer_policy
+from .policy_mlp_transformer import make_mlp_transformer_policy
+from .policy_transformer import make_transformer_policy
 from configs import config
 
 
