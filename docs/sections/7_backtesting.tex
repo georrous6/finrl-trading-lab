@@ -1,0 +1,82 @@
+\section{Backtesting Performance Evaluation}
+
+The trained models are evaluated on an out-of-sample test period covering
+\texttt{2026-01-01} to \texttt{2026-03-20} using the constituents of the Dow Jones 30
+index. This phase evaluates the generalization capability of the learned policies under
+previously unseen market conditions.
+
+Based on the training results presented in the previous section, the best-performing
+configurations are selected for backtesting: DDPG (MLP Policy), PPO (Transformer Policy),
+and PPO (MLP--Transformer Policy). These models achieved the strongest overall training
+performance and financial metrics among their respective policy families.
+
+Evaluation is performed using the same financial metrics monitored during training:
+\textit{total return}, \textit{portfolio value}, and \textit{Sharpe ratio}. Total return
+measures cumulative portfolio growth, portfolio value tracks capital evolution over time,
+while Sharpe ratio evaluates risk-adjusted performance. Table~\ref{tab:backtest_results}
+summarizes the final total return values, while
+Figures~\ref{fig:backtest_total_return},
+\ref{fig:backtest_portfolio_value}, and
+\ref{fig:backtest_sharpe_ratio} illustrate the evolution of the monitored metrics during
+backtesting.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\hline
+\textbf{Model} & \textbf{Smoothed Value} & \textbf{Final Total Return} & \textbf{Steps} \\
+\hline
+DDPG (MLP) & 0.0186 & 0.0112 & 51 \\
+PPO (MLP--Transformer) & -0.0948 & -0.0992 & 51 \\
+PPO (Transformer) & -0.1344 & -0.1481 & 51 \\
+\hline
+\end{tabular}
+\caption{Backtesting performance measured using total return.}
+\label{tab:backtest_results}
+\end{table}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/backtest_total_return.png}
+    \caption{Backtesting total return evolution across evaluated models.}
+    \label{fig:backtest_total_return}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/backtest_portfolio_value.png}
+    \caption{Portfolio value evolution during backtesting.}
+    \label{fig:backtest_portfolio_value}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/backtest_sharpe_ratio.png}
+    \caption{Sharpe ratio evolution during backtesting.}
+    \label{fig:backtest_sharpe_ratio}
+\end{figure}
+
+The two Transformer-based PPO models exhibit a gradual degradation in performance during
+the evaluation period. As shown in
+Figures~\ref{fig:backtest_total_return},
+\ref{fig:backtest_portfolio_value}, and
+\ref{fig:backtest_sharpe_ratio}, both policies show decreasing trends across all
+financial metrics. The hybrid MLP--Transformer model exhibits a slower decline compared
+to the pure Transformer architecture, indicating improved robustness through the
+separation of market and portfolio representations, although both models ultimately
+produce negative returns.
+
+In contrast, DDPG (MLP) demonstrates the strongest out-of-sample performance, consistent
+with the observations from training where it achieved the highest overall financial
+metrics. As shown in Figure~\ref{fig:backtest_total_return}, total return increases
+during the first part of evaluation, reaching a maximum around timestep 35, before
+gradually declining toward the end of the testing period. Nevertheless, the model
+maintains positive performance with a final total return of approximately $1.12\%$
+(Table~\ref{tab:backtest_results}). The same behavior is reflected in portfolio value and
+Sharpe ratio, indicating consistent profitability despite the late-stage decline.
+
+Overall, the backtesting results remain aligned with the training observations. DDPG
+(MLP), which achieved the strongest training performance, also demonstrates the best
+generalization capability and out-of-sample robustness. PPO Transformer variants remain
+competitive during training but exhibit reduced generalization performance under unseen
+market conditions.

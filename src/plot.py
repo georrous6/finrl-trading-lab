@@ -19,8 +19,9 @@ TAGS = {
         "financial/total_return",
     ],
     "test": [
-        "eval/mean_reward",
-        "eval/mean_ep_length",
+        "backtest/portfolio_value",
+        "backtest/sharpe_ratio",
+        "backtest/total_return",
     ],
 }
 
@@ -219,7 +220,7 @@ def main():
 
     args = parser.parse_args()
 
-    output_dir = Path("plots") / args.mode
+    output_dir = Path("docs") / "figures"
 
     output_dir.mkdir(
         parents=True,
