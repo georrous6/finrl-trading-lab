@@ -1,0 +1,116 @@
+\section{Training Performance and Stability Analysis}
+
+Training is performed on historical data from the Dow Jones Industrial Average 
+(DJIA) constituents using daily observations (1D frequency), covering the period 
+from \texttt{2014-01-06} to \texttt{2025-12-31}. All models are
+trained for up to $1{,}000{,}000$ timesteps under identical environment dynamics,
+reward formulation, and preprocessing pipeline, enabling direct comparison across
+algorithms and policy architectures.
+
+Training behavior is analyzed using episodic mean reward, together with two financial 
+metrics: \textit{total return}, measuring cumulative portfolio growth, and 
+\textit{Sharpe ratio}, measuring risk-adjusted return. Table~\ref{tab:training_results} 
+summarizes the final reward values, while Figures~\ref{fig:rollout_ep_rew_mean},
+\ref{fig:financial_total_return}, and \ref{fig:financial_sharpe_ratio} illustrate the
+training evolution of all monitored metrics.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/rollout_ep_rew_mean.png}
+    \caption{Training curves of episodic mean reward (\texttt{ep\_rew\_mean}) across all
+    evaluated DRL algorithms and policy architectures.}
+    \label{fig:rollout_ep_rew_mean}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/financial_total_return.png}
+    \caption{Episode total return across all evaluated DRL algorithms and policy architectures.}
+    \label{fig:financial_total_return}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/financial_sharpe_ratio.png}
+    \caption{Sharpe ratio across all evaluated DRL algorithms and policy architectures.}
+    \label{fig:financial_sharpe_ratio}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\hline
+\textbf{Model} & \textbf{Smoothed Value} & \textbf{Final Value} & \textbf{Timesteps} \\
+\hline
+A2C (MLP) & 0.5743 & 0.5788 & 998,400 \\
+A2C (Transformer) & 0.7356 & 0.7319 & 998,400 \\
+DDPG (MLP) & 2.5110 & 2.5246 & 989,280 \\
+DDPG (Transformer) & 1.2787 & 1.2076 & 148,392 \\
+PPO (MLP) & 1.7632 & 1.7628 & 1,001,472 \\
+PPO (MLP--Transformer) & 1.7386 & 1.7396 & 1,001,472 \\
+PPO (Transformer) & 2.1647 & 2.1627 & 1,001,472 \\
+Recurrent PPO (LSTM) & 2.3349 & 2.3360 & 1,000,448 \\
+SAC (MLP) & 1.8009 & 1.8467 & 989,280 \\
+SAC (Transformer) & 0.5139 & 0.4212 & 115,416 \\
+TD3 (MLP) & 2.1192 & 2.0805 & 989,280 \\
+TD3 (Transformer) & 1.5086 & 1.5557 & 164,880 \\
+\hline
+\end{tabular}
+\caption{Final training performance across different DRL algorithms and architectures.}
+\label{tab:training_results}
+\end{table}
+
+\paragraph{A2C.}
+Both A2C variants remain nearly flat throughout training in
+Figure~\ref{fig:rollout_ep_rew_mean}, converging to relatively low reward levels.
+This behavior is consistently reflected in total return and Sharpe ratio
+(Figures~\ref{fig:financial_total_return} and
+\ref{fig:financial_sharpe_ratio}), indicating limited policy improvement during
+training. The Transformer variant provides only a marginal performance gain over the
+MLP baseline.
+
+\paragraph{PPO.}
+All PPO variants exhibit stable learning dynamics with clear convergence behavior across
+all monitored metrics. The Transformer policy achieves the strongest performance within
+the PPO family (Table~\ref{tab:training_results}), while also maintaining strong total
+return and Sharpe ratio behavior. The hybrid MLP--Transformer architecture performs
+similarly to the MLP baseline, suggesting limited benefit from partial separation of
+portfolio and market representations in this experimental setting.
+
+\paragraph{Recurrent PPO (LSTM).}
+Recurrent PPO achieves the highest episodic reward
+(Table~\ref{tab:training_results}); however, the reward trajectory is non-monotonic and
+exhibits noticeable oscillations
+(Figure~\ref{fig:rollout_ep_rew_mean}), indicating reduced training stability compared
+to standard PPO variants. This behavior is further reflected in the total return metric,
+where extreme positive spikes approaching numerical divergence appear
+(Figure~\ref{fig:financial_total_return}), suggesting episodic instability under
+long-horizon portfolio compounding.
+
+\paragraph{DDPG.}
+DDPG (MLP) achieves the strongest overall performance across all monitored metrics.
+It consistently attains the highest total return while maintaining strong Sharpe ratio
+behavior and stable reward progression. In contrast, the Transformer variant terminates
+early at approximately 148k timesteps and performs substantially worse across all
+metrics.
+
+\paragraph{SAC.}
+The SAC MLP model demonstrates moderate but relatively stable performance across reward,
+total return, and Sharpe ratio. The Transformer variant fails to complete training,
+terminating at approximately 115k timesteps with weaker performance and unstable
+learning behavior.
+
+\paragraph{TD3.}
+The TD3 MLP model exhibits non-monotonic reward dynamics, starting from relatively high
+reward values before gradually declining during training. The Transformer variant
+terminates early at approximately 165k timesteps and additionally exhibits extreme
+spikes in total return
+(Figure~\ref{fig:financial_total_return}), similar to recurrent PPO, indicating
+episodic instability rather than sustained portfolio growth.
+
+Overall, the results show consistent trends across reward and financial metrics.
+MLP policies provide the most stable training behavior, while Transformer architectures
+improve representation capacity for on-policy methods---particularly PPO---but reduce
+stability in off-policy algorithms. Recurrent policies provide strong temporal modeling
+capabilities, although they introduce additional instability in long-horizon portfolio
+dynamics.

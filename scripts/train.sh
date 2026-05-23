@@ -1,13 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=finrl-train
 #SBATCH --time=6:00:00
-#SBATCH --partition=ampere
+#SBATCH --partition=highcpu
 #SBATCH --output=slurm-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=64GB
-#SBATCH --cpus-per-task=16
-#SBATCH --gpus-per-task=1
+#SBATCH --cpus-per-task=32
 
 set -euo pipefail
 

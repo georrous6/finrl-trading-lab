@@ -1,0 +1,39 @@
+\section{Conclusion}
+
+This work presented a modular deep reinforcement learning framework 
+for multi-asset financial trading, integrating custom trading environments, 
+temporal observation processing, and multiple policy architectures, 
+including MLP, Transformer-based, hybrid MLP--Transformer, and 
+recurrent (LSTM) models.
+
+The training analysis revealed clear differences in learning dynamics across 
+algorithms. On-policy methods such as A2C showed limited learning capacity, 
+with near-flat reward trajectories. PPO variants exhibited the most stable 
+and consistent behavior across architectures, with Transformer-based policies 
+achieving the strongest performance due to improved temporal modeling.
+
+Off-policy methods were more sensitive to architectural design. DDPG (MLP) 
+achieved the most stable and competitive performance overall. In contrast, 
+Transformer-based variants of DDPG, TD3, and SAC showed instability and 
+early termination, highlighting difficulties in combining replay-based 
+learning with high-capacity sequence encoders.
+
+The evaluation of financial metrics (total return and Sharpe ratio) was 
+largely consistent with episodic reward trends, but revealed additional 
+instability in long-horizon compounding behavior. In particular, 
+recurrent PPO and Transformer-based TD3 exhibited episodic return spikes, 
+indicating numerical instability and sensitivity to compounding effects in 
+certain regimes.
+
+The backtesting results further highlighted generalization gaps across 
+architectures. While Transformer-based PPO models performed well during 
+training, they failed to generalize to unseen market conditions, producing 
+negative returns over the evaluation period. In contrast, DDPG (MLP), which
+also achieved the strongest training stability, demonstrated the best 
+out-of-sample performance with consistently positive returns.
+
+Overall, the results indicate a clear trade-off between expressiveness and 
+stability. MLP-based policies provide the most robust and reliable performance, 
+Transformer architectures improve representation power but reduce stability 
+in off-policy settings, and recurrent architectures introduce additional 
+instability without consistent performance gains in this experimental setup.

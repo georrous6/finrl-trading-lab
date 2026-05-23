@@ -18,11 +18,17 @@ jobs:
           - model: ppo
             policy: TransformerPolicy
 
+          - model: ppo
+            policy: MlpTransformerPolicy
+
           - model: a2c
             policy: MlpPolicy
 
           - model: a2c
             policy: TransformerPolicy
+
+          - model: a2c
+            policy: MlpTransformerPolicy
 
           - model: sac
             policy: MlpPolicy
@@ -30,17 +36,26 @@ jobs:
           - model: sac
             policy: TransformerPolicy
 
+          - model: sac
+            policy: MlpTransformerPolicy
+
           - model: td3
             policy: MlpPolicy
 
           - model: td3
             policy: TransformerPolicy
 
+          - model: td3
+            policy: MlpTransformerPolicy
+
           - model: ddpg
             policy: MlpPolicy
 
           - model: ddpg
             policy: TransformerPolicy
+
+          - model: ddpg
+            policy: MlpTransformerPolicy
 
           - model: recurrent_ppo
             policy: MlpLstmPolicy

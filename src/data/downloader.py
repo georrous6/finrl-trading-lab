@@ -8,7 +8,7 @@ import pandas as pd
 import yfinance as yf
 
 
-class YahooDownloader:
+class DataDownloader:
     """Provides methods for retrieving daily stock data from
     Yahoo Finance API
 
@@ -40,7 +40,7 @@ class YahooDownloader:
         self.ticker_list = ticker_list
         self.interval = interval
 
-    def fetch_data(self, proxy=None, auto_adjust=False) -> pd.DataFrame:
+    def fetch_data(self, auto_adjust=True) -> pd.DataFrame:
         """Fetches data from Yahoo API
         Parameters
         ----------
@@ -51,9 +51,6 @@ class YahooDownloader:
             7 columns: A date, open, high, low, close, volume and tick symbol
             for the specified stock ticker
         """
-
-        if proxy is not None:
-            yf.set_config(proxy=proxy)
 
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
@@ -68,6 +65,7 @@ class YahooDownloader:
             )
             if temp_df.columns.nlevels != 1:
                 temp_df.columns = temp_df.columns.droplevel(1)
+            temp_df.columns.name = None
             temp_df["tic"] = tic
             if len(temp_df) > 0:
                 # data_df = data_df.append(temp_df)
@@ -94,8 +92,6 @@ class YahooDownloader:
                 inplace=True,
             )
 
-            if not auto_adjust:
-                data_df = self._adjust_prices(data_df)
         except NotImplementedError:
             print("the features are not supported currently")
         # create day of the week column (monday = 0)
@@ -105,29 +101,7 @@ class YahooDownloader:
         # drop missing data
         data_df = data_df.dropna()
         data_df = data_df.reset_index(drop=True)
-        print("Shape of DataFrame: ", data_df.shape)
-        # print("Display DataFrame: ", data_df.head())
 
         data_df = data_df.sort_values(by=["date", "tic"]).reset_index(drop=True)
 
         return data_df
-
-    def _adjust_prices(self, data_df: pd.DataFrame) -> pd.DataFrame:
-        # use adjusted close price instead of close price
-        data_df["adj"] = data_df["adjcp"] / data_df["close"]
-        for col in ["open", "high", "low", "close"]:
-            data_df[col] *= data_df["adj"]
-
-        # drop the adjusted close price column
-        return data_df.drop(["adjcp", "adj"], axis=1)
-
-    def select_equal_rows_stock(self, df):
-        df_check = df.tic.value_counts()
-        df_check = pd.DataFrame(df_check).reset_index()
-        df_check.columns = ["tic", "counts"]
-        mean_df = df_check.counts.mean()
-        equal_list = list(df.tic.value_counts() >= mean_df)
-        names = df.tic.value_counts().index
-        select_stocks_list = list(names[equal_list])
-        df = df[df.tic.isin(select_stocks_list)]
-        return df

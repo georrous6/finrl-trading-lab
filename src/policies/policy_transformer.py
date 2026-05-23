@@ -6,16 +6,33 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.td3.policies import TD3Policy
 from stable_baselines3.sac.policies import SACPolicy
 
+try:
+    from stable_baselines3.common.policies import MultiInputActorCriticPolicy
+except ImportError:
+    MultiInputActorCriticPolicy = ActorCriticPolicy
+
+try:
+    from stable_baselines3.td3.policies import MultiInputPolicy as TD3MultiInputPolicy
+except ImportError:
+    TD3MultiInputPolicy = TD3Policy
+
+try:
+    from stable_baselines3.sac.policies import MultiInputPolicy as SACMultiInputPolicy
+except ImportError:
+    SACMultiInputPolicy = SACPolicy
+
 
 class _TransformerFeatureExtractor(BaseFeaturesExtractor):
     """
-    Input:  obs (batch, lookback, obs_dim) <- directly from the env
+    Input:
+        Dict obs: {"portfolio": (batch, lookback, dim_p), "market": (batch, lookback, dim_m)}
+        Flat obs: (batch, lookback, obs_dim)
     Output: (batch, d_model) -> fed into SB3 actor/critic heads
     """
 
     def __init__(
         self,
-        observation_space: gym.spaces.Box,
+        observation_space: gym.spaces.Space,
         d_model: int = 128,
         nhead: int = 4,
         num_layers: int = 2,
@@ -24,12 +41,19 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
     ):
         super().__init__(observation_space, features_dim=d_model)
 
-        print(f'Observation shape: {observation_space.shape}')
-        lookback, obs_dim = observation_space.shape  # unpack (seq, feat)
+        if isinstance(observation_space, gym.spaces.Dict):
+            portfolio_space = observation_space.spaces["portfolio"]
+            market_space = observation_space.spaces["market"]
+            lookback = market_space.shape[0]
+            obs_dim = portfolio_space.shape[1] + market_space.shape[1]
+            print(f"Observation dict shapes: portfolio={portfolio_space.shape}, market={market_space.shape}")
+        else:
+            print(f"Observation shape: {observation_space.shape}")
+            lookback, obs_dim = observation_space.shape
 
         self.input_proj = nn.Linear(obs_dim, d_model)
 
-        # Learnable positional encoding — better than sinusoidal for RL
+        # Learnable positional encoding
         self.pos_embedding = nn.Parameter(th.zeros(1, lookback, d_model))
         nn.init.trunc_normal_(self.pos_embedding, std=0.02)
 
@@ -38,8 +62,8 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
             nhead=nhead,
             dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True,        # (batch, seq, d_model) convention
-            norm_first=True,         # Pre-LN: more stable training
+            batch_first=True,  # (batch, seq, d_model) convention
+            norm_first=True,  # Pre-LN: more stable training
         )
         self.transformer = nn.TransformerEncoder(
             encoder_layer,
@@ -49,9 +73,12 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
 
         self.norm = nn.LayerNorm(d_model)
 
-    def forward(self, obs: th.Tensor) -> th.Tensor:
-        # obs: (batch, lookback, obs_dim)
-        x = self.input_proj(obs)             # (batch, lookback, d_model)
+    def forward(self, obs) -> th.Tensor:
+        if isinstance(obs, dict):
+            x = th.cat([obs["portfolio"], obs["market"]], dim=-1)
+        else:
+            x = obs
+        x = self.input_proj(x)             # (batch, lookback, d_model)
         x = x + self.pos_embedding           # add positional info
         x = self.transformer(x)              # (batch, lookback, d_model)
         x = self.norm(x[:, -1, :])          # last token → (batch, d_model)
@@ -59,11 +86,11 @@ class _TransformerFeatureExtractor(BaseFeaturesExtractor):
 
 
 _POLICY_BASE_MAP = {
-    "ppo":  ActorCriticPolicy,
-    "a2c":  ActorCriticPolicy,
-    "td3":  TD3Policy,
-    "ddpg": TD3Policy,
-    "sac":  SACPolicy,
+    "ppo": MultiInputActorCriticPolicy,
+    "a2c": MultiInputActorCriticPolicy,
+    "td3": TD3MultiInputPolicy,
+    "ddpg": TD3MultiInputPolicy,
+    "sac": SACMultiInputPolicy,
 }
 
 def make_transformer_policy(model_name: str):
@@ -89,7 +116,8 @@ def make_transformer_policy(model_name: str):
             kwargs["features_extractor_class"]  = _TransformerFeatureExtractor
             super().__init__(*args, **kwargs)
 
-    TransformerPolicy.__name__     = f"Transformer{base.__name__}"
+    TransformerPolicy.__name__ = f"Transformer{base.__name__}"
     TransformerPolicy.__qualname__ = TransformerPolicy.__name__
+    TransformerPolicy.display_name = "TransformerPolicy"
 
     return TransformerPolicy

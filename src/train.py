@@ -1,19 +1,47 @@
 from __future__ import annotations
 
-from agents.drl_agent import DRLAgent
-from utils.download import download_data
-from configs import config
-from envs.multi_asset import MultiAssetTradingEnv
-from configs.config_tickers import DOW_30_TICKER
-from utils.setup import make_directories, build_parser
-
 from pathlib import Path
+from argparse import ArgumentParser
+
+from agents.drl_agent import DRLAgent
+from configs import config
+from envs.env_crypto_trading import CryptoTradingEnv
+from envs.env_stock_trading import StockTradingEnv
+from envs.assembly import make_env
+from policies.factory import make_policy
+from configs.config_tickers import (CRYPTO_TICKERS, 
+                                    STOCK_TICKERS)
+from utils.common import (make_directories, 
+                          build_parser, 
+                          get_data)
+
+
+def _add_train_args(parser: ArgumentParser) -> ArgumentParser:
+    parser.add_argument(
+        "--total-timesteps",
+        dest="total_timesteps",
+        help="total timesteps for training",
+        metavar="TOTAL_TIMESTEPS",
+        type=int,
+        default=config.TOTAL_TIMESTEPS,
+    )
+    parser.add_argument(
+        "--model-save-path",
+        dest="model_save_path",
+        help="path to save the trained model",
+        metavar="MODEL_SAVE_PATH",
+        type=str,
+        default=None,  # if None, handled by the agent internally
+    )
+    return parser
 
 
 def main() -> int:
 
     mode = "train"
-    parser = build_parser(mode)
+    parser = build_parser()
+    parser = _add_train_args(parser)
+
     options = parser.parse_args()
     make_directories([
         config.DATA_SAVE_DIR, 
@@ -21,32 +49,51 @@ def main() -> int:
         config.LOG_DIR,
     ])
 
-    data_path = str(Path(config.DATA_SAVE_DIR) / config.TRAIN_DATA_FILE)
+    data_path = str(Path(config.DATA_SAVE_DIR) / 
+                    f"{options.asset_type}_{mode}_data.csv")
 
-    price_array, tech_array = download_data(
-        ticker_list=DOW_30_TICKER,
+    if options.asset_type == "crypto":
+        ticker_list = CRYPTO_TICKERS
+        env_cls = CryptoTradingEnv
+        data_params = config.CRYPTO_DATA_PARAMS
+        env_params = config.CRYPTO_TRADING_ENV_PARAMS
+    else:  # stock
+        ticker_list = STOCK_TICKERS
+        env_cls = StockTradingEnv
+        data_params = config.STOCK_DATA_PARAMS
+        env_params = config.STOCK_TRADING_ENV_PARAMS
+
+
+    data = get_data(
+        ticker_list=ticker_list,
         tech_indicator_list=config.INDICATORS,
         interval=config.TIME_INTERVAL,
         start_date=config.TRAIN_START_DATE,
         end_date=config.TRAIN_END_DATE,
         data_path=data_path,
-        use_vix=not options.no_vix,
+        **data_params,
     )
 
-    env = MultiAssetTradingEnv(
-        price_array=price_array,
-        tech_array=tech_array,
-        **config.MULTI_ASSET_ENV_PARAMS,
+    env = env_cls(**data, **env_params)
+
+    policy, policy_kwargs, requires_sequence = make_policy(
+        model_name=options.model_name,
+        policy_name=options.policy_name,
+        observation_space=env.observation_space,
     )
+
+    env = make_env(env=env, 
+                   norm=options.norm, 
+                   seq_len=config.SEQUENCE_LENGTH,
+                   requires_sequence=requires_sequence)
 
     agent = DRLAgent(
         model_name=options.model_name,
-        policy_name=options.policy,
+        policy=policy,
         env=env,
         mode=mode,
-        seq_len=config.SEQUENCE_LENGTH,
-        norm=options.norm,
         verbose=options.verbose,
+        policy_kwargs=policy_kwargs,
     )
 
     agent.train(total_timesteps=options.total_timesteps, 

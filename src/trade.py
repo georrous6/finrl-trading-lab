@@ -1,78 +1,62 @@
 from __future__ import annotations
 
-from finrl.meta.env_stock_trading.env_stock_papertrading import AlpacaPaperTrading
-from finrl.test import test
+from dotenv import dotenv_values
+from argparse import ArgumentParser
+
+from meta.paper_trading import StockPaperTrading
+from utils.common import build_parser
+from configs import config
+from configs.config_tickers import STOCK_TICKERS
 
 
-def trade(
-    start_date,
-    end_date,
-    ticker_list,
-    data_source,
-    time_interval,
-    technical_indicator_list,
-    drl_lib,
-    env,
-    model_name,
-    API_KEY,
-    API_SECRET,
-    API_BASE_URL,
-    trade_mode="backtesting",
-    if_vix=True,
-    **kwargs,
-):
-    if trade_mode == "backtesting":
-        # use test function for backtesting mode
-        test(
-            start_date,
-            end_date,
-            ticker_list,
-            data_source,
-            time_interval,
-            technical_indicator_list,
-            drl_lib,
-            env,
-            model_name,
-            if_vix=True,
-            **kwargs,
-        )
+def _add_trade_args(parser: ArgumentParser) -> ArgumentParser:
+    parser.add_argument(
+        "--model-path",
+        dest="model_path",
+        help="path to load the trained model from",
+        metavar="MODEL_PATH",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--trading-interval",
+        dest="trading_interval",
+        help="trading interval for paper trading, e.g., 1m, 5m, 1h",
+        metavar="TRADING_INTERVAL",
+        type=str,
+        default="1m",
+    )
+    return parser
 
-    elif trade_mode == "paper_trading":
-        # read parameters
-        try:
-            net_dim = kwargs.get("net_dimension", 2**7)  # dimension of NNs
-            cwd = kwargs.get("cwd", "./" + str(model_name))  # current working directory
-            state_dim = kwargs.get("state_dim")  # dimension of state/observations space
-            action_dim = kwargs.get("action_dim")  # dimension of action space
-        except:
-            raise ValueError(
-                "Fail to read parameters. Please check inputs for net_dim, cwd, state_dim, action_dim."
-            )
 
-        # initialize paper trading env
-        paper_trading = AlpacaPaperTrading(
-            ticker_list,
-            time_interval,
-            drl_lib,
-            model_name,
-            cwd,
-            net_dim,
-            state_dim,
-            action_dim,
-            API_KEY,
-            API_SECRET,
-            API_BASE_URL,
-            technical_indicator_list,
-            turbulence_thresh=30,
-            max_stock=1e2,
-            latency=None,
-        )
+def main() -> int:
 
-        # AlpacaPaperTrading.run()  # run paper trading
-        paper_trading.run()
-        # bug fix run is a instance function not static
+    parser = build_parser()
+    parser = _add_trade_args(parser)
+    options = parser.parse_args()
 
-    else:
-        raise ValueError(
-            "Invalid mode input! Please input either 'backtesting' or 'paper_trading'."
-        )
+    # Load environment variables
+    env_vars = dotenv_values(".env")
+    API_KEY = env_vars.get("ALPACA_API_KEY")
+    API_SECRET = env_vars.get("ALPACA_API_SECRET")
+
+    # initialize paper trading env
+    paper_trading = StockPaperTrading(
+        model_path=options.model_path,
+        ticker_list=STOCK_TICKERS,
+        tech_indicator_list=config.INDICATORS,
+        api_key=API_KEY,
+        api_secret=API_SECRET,
+        trading_interval=options.trading_interval,
+        max_stocks=config.STOCK_TRADING_ENV_PARAMS["max_stocks"],
+        transaction_cost=config.STOCK_TRADING_ENV_PARAMS["transaction_cost"],
+        min_trade_fraction=0.05,
+        timeframe=config.TIME_INTERVAL,
+        limit=100,
+        **config.STOCK_DATA_PARAMS,
+    )
+
+    paper_trading.run()
+
+if __name__ == "__main__":
+    SystemExit(main())
