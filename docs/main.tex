@@ -1,0 +1,344 @@
+\documentclass{article}
+
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+
+\sloppy
+
+\title{Financial Trading \& Deep Reinforcement Learning}
+\author{Georgios Rousomanis}
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Deep Reinforcement Learning (DRL) has emerged as a powerful approach for 
+solving sequential decision-making problems by combining reinforcement 
+learning with deep neural networks. Its ability to learn complex policies 
+directly from high-dimensional observations has led to applications across
+various domains, including robotics, control systems, games, and financial trading.
+
+This work presents the development of a DRL framework for multi-asset trading in stock 
+and cryptocurrency markets. The framework supports the complete DRL pipeline, including 
+environment modeling, data preprocessing and normalization, policy network design, training 
+using algorithms such as PPO and A2C, and evaluation through backtesting on unseen data.
+
+The objective of this project is to provide a modular framework for studying and evaluating 
+DRL methods in financial environments while enabling experimentation with different 
+architectures, policies, and training configurations.
+
+The implementation of this work is based on the 
+\href{https://github.com/AI4Finance-Foundation/FinRL}{FinRL} framework.
+
+
+\section{Trading Environment Modeling}
+
+The proposed DRL framework is built upon custom \texttt{Gymnasium} environments 
+that formulate the trading problem as a sequential decision-making task. 
+At each timestep, the agent observes the current market state and portfolio 
+information, and outputs continuous actions that determine asset allocation 
+decisions. Two environments are implemented: a cryptocurrency trading environment
+and a stock trading environment.
+
+\subsection{Crypto Trading Environment}
+
+The crypto environment models a multi-asset portfolio where the agent interacts 
+with price and technical indicator data over time. The environment state consists 
+of both market information and portfolio status, including cash and held positions.
+
+The action space is continuous and bounded in $[-1, 1]^N$, where each component 
+represents a relative trading signal for a given asset. In practice, negative values 
+correspond to sell decisions while positive values correspond to buy decisions. These 
+signals are mapped to actual trading quantities using the current portfolio state. 
+For selling, the agent liquidates a fraction of the currently held shares proportional 
+to the magnitude of the action. For buying, the action determines a desired allocation 
+scaled by the current portfolio value, which is then converted into a number of shares 
+subject to available cash, transaction costs, and position limits.
+
+The observation space is structured into two components: a portfolio vector and a market
+feature vector. The portfolio vector contains the available cash and the number of held 
+shares for each asset. The market vector encodes the current prices together with technical
+indicators for each ticker, providing the agent with both raw and engineered market information.
+
+An alternative formulation of the action space is based on direct portfolio allocation,
+where actions are bounded in $[0, 1]^N$ and each value represents the fraction of total 
+portfolio value assigned to each asset. However, this approach was not adopted because 
+it requires solving a normalization constraint at every step to ensure that allocations 
+sum to one. This introduces coupling between assets and makes exploration significantly 
+more difficult for the agent, especially in high-dimensional multi-asset settings. 
+In contrast, the chosen formulation allows independent per-asset decisions and leads to 
+more stable learning dynamics.
+
+The reward function is defined as the logarithmic change in portfolio value between 
+consecutive timesteps:
+
+\[
+r_t = \log\left(\frac{V_{t+1} + \epsilon}{V_t + \epsilon}\right)
+\]
+
+The logarithmic formulation is used instead of simple returns because it provides 
+numerical stability, is symmetric for gains and losses, and naturally corresponds 
+to maximizing geometric growth of the portfolio over time. This makes it particularly 
+suitable for long-horizon trading tasks, where compounding effects are essential.
+
+Transaction costs and position constraints are incorporated into the environment 
+dynamics to ensure realistic trading behavior. The agent is therefore required 
+to learn a policy that balances profitability and trading frictions under continuous 
+control constraints.
+
+\subsection{Stock Trading Environment}
+
+The stock trading environment follows the same general DRL formulation as the crypto
+environment, modeling trading as a sequential decision-making problem under uncertainty.
+However, it introduces additional structure to account for market risk signals and more 
+constrained trading dynamics.
+
+In addition to prices and technical indicators, the state representation may include 
+external market descriptors such as volatility indices (e.g., VIX) and turbulence 
+measures. These signals provide the agent with additional information about market 
+uncertainty, allowing it to adapt its policy under different regimes of risk.
+
+The action space remains continuous and bounded in $[-1, 1]^N$, where each component
+represents a per-asset trading signal. Similarly to the crypto environment, negative
+values indicate selling pressure while positive values indicate buying pressure. 
+Actions are translated into discrete share operations by first applying sell 
+decisions to reduce existing holdings and then executing buy decisions constrained
+by available cash, transaction costs, and per-asset position limits. In addition, 
+the environment enforces a maximum holding constraint per asset, which prevents 
+unlimited accumulation of positions.
+
+An additional mechanism is introduced to handle high-risk market regimes. When a 
+predefined turbulence threshold is exceeded, the action is clipped such that the 
+agent is biased towards reducing exposure. This effectively forces a conservative
+behavior during periods of extreme market instability and encourages risk-aware 
+policy learning.
+
+The reward function extends the standard log-return formulation by incorporating a 
+risk-sensitive penalty term:
+
+\[
+r_t = \log\left(\frac{V_{t+1} + \epsilon}{V_t + \epsilon}\right) - \lambda 
+\cdot \text{exposure}_t \cdot \text{risk}_t
+\]
+
+where $\text{exposure}_t$ represents the fraction of capital invested in risky 
+assets and $\text{risk}_t$ is derived from market volatility indicators. The 
+coefficient $\lambda$ controls the trade-off between return maximization and 
+risk minimization.
+
+Overall, the stock trading environment defines a Markov Decision Process (MDP)
+in which the agent observes a structured state $s_t$ composed of portfolio and
+market information, takes continuous actions $a_t$, and receives a reward $r_t$
+that reflects both profitability and risk exposure. The objective is to learn a
+policy $\pi(a_t | s_t)$ that maximizes the expected discounted return under 
+realistic market constraints and non-stationary dynamics.
+
+\section{Policy Network Architectures}
+
+To address the sequential and highly non-stationary nature of financial time 
+series, this work investigates different policy architectures within the DRL 
+framework. In particular, we compare standard MLP-based policies, recurrent 
+policies (LSTM-based), and two custom Transformer-based feature extractors 
+designed to capture temporal dependencies in market dynamics.
+
+Traditional MLP policies used in DRL frameworks such as \texttt{Stable-Baselines3} 
+treat observations as independent feature vectors, ignoring temporal structure.
+While effective in simple environments, this assumption is limiting in financial 
+trading, where decisions depend strongly on historical context.
+
+Recurrent policies such as LSTM-based architectures partially address this limitation 
+by maintaining an internal hidden state. However, they compress historical information 
+into a fixed-size memory vector, which can lead to information loss over long sequences
+and may struggle with long-range dependencies.
+
+Transformers are introduced to overcome these limitations by using self-attention, 
+which allows the model to directly attend to all past observations within a fixed 
+lookback window. This enables more effective modeling of long-range temporal 
+dependencies, regime shifts, delayed market reactions, and interactions across 
+features and time steps. As a result, Transformers are particularly well-suited 
+for multi-asset trading, where both temporal dynamics and cross-asset relationships 
+evolve continuously over time.
+
+\subsection{Transformer Feature Extractor (Full Fusion Model)}
+
+The first proposed architecture is a fully Transformer-based feature extractor in
+which portfolio state and market observations are jointly processed. At each timestep,
+the input consists of a sequence over a fixed lookback window, where each element 
+concatenates portfolio information (cash and asset holdings) with market features 
+(prices and technical indicators). This vector is projected into a latent space of 
+dimension $d_{\text{model}} = 128$ using a linear embedding layer.
+
+A learnable positional embedding of shape $(1, T, 128)$ is added to preserve temporal
+order. The resulting sequence is processed by a Transformer encoder composed of $2$ 
+layers, each with $4$ attention heads and a feedforward network of dimension $256$,
+using pre-layer normalization and dropout of $0.1$ for regularization.
+
+Formally, the embedding step can be written as:
+\[
+x_t = W_{\text{proj}} \cdot [\text{portfolio}_t, \text{market}_t]
+\]
+
+The final representation is obtained by selecting the last time-step output of the 
+Transformer encoder and applying layer normalization before passing it to the 
+actor-critic heads of the DRL algorithm.
+
+This architecture enables the agent to learn a unified representation that captures
+both temporal dependencies and cross-asset interactions within a single attention-based 
+framework.
+
+\subsection{Hybrid MLP--Transformer Architecture}
+
+The second proposed architecture introduces a structured separation between temporal 
+market modeling and static portfolio representation. Unlike the fully Transformer-based 
+model, this design explicitly decomposes the observation space into two independent 
+branches before merging them into a shared latent representation.
+
+The \textbf{market branch} processes sequential observations over a fixed lookback window. 
+Each timestep contains price information and technical indicators for all assets, forming 
+an input tensor of shape $(T, N \cdot (1 + F))$. This input is first projected into a latent
+space of dimension $d_{\text{model}} = 128$ using a linear embedding layer. A learnable 
+positional encoding of shape $(1, T, 128)$ is added, after which the sequence is processed 
+by a Transformer encoder composed of $2$ layers, each with $4$ attention heads, a feedforward 
+dimension of $256$, pre-layer normalization, and dropout of $0.1$. The output corresponding to 
+the final timestep is then normalized using Layer Normalization to obtain the market embedding.
+
+In parallel, the \textbf{portfolio branch} processes the most recent portfolio state, 
+consisting of cash and asset holdings. Since this component is non-sequential, it is 
+handled using a multi-layer perceptron with two hidden layers of size $64$, each followed 
+by ReLU activations. This branch produces a compact embedding that captures the current 
+allocation structure of the agent.
+
+The two representations are then fused by concatenation:
+\[
+z_t = [z^{\text{market}}_t, z^{\text{portfolio}}_t]
+\]
+followed by a fully connected layer that maps the concatenated vector back to a 
+$d_{\text{model}} = 128$ dimensional space with a ReLU activation. This fusion step 
+allows the policy to jointly reason over temporal market dynamics and the current 
+portfolio configuration.
+
+This architectural choice is motivated by the different nature of the two information 
+sources. Market data is inherently sequential and benefits from attention-based modeling, 
+whereas portfolio state is instantaneous and better suited to a feedforward representation.
+Separating these streams reduces unnecessary coupling and improves interpretability while
+maintaining expressive power through the fusion layer.
+
+\section{Data Representation, Sequence Construction, and Normalization}
+
+Since the proposed transformer architectures rely on temporal models , the environment 
+observations are explicitly structured as fixed-length sequences. This is achieved through
+a vectorized environment wrapper that maintains a sliding window of the last $T$ observations
+for each parallel environment instance. As a result, instead of receiving a single state 
+$s_t$, the agent observes a sequence $(s_{t-T+1}, \dots, s_t)$, where each state corresponds
+only to information available at a single timestep $t$ (portfolio state and market features 
+at that time).
+
+This sequence construction is implemented via a \texttt{VecSequenceWrapper}, which maintains 
+a rolling buffer of size $T = 10$ (as defined in the training configuration). At each environment 
+step, the buffer is shifted and the newest observation is appended, ensuring that the agent always 
+receives a temporally ordered window of past observations. When an episode terminates, the 
+corresponding buffer is reset to avoid information leakage across episodes.
+
+Given the strong heterogeneity in scale across financial features (e.g., prices, technical 
+indicators, portfolio values, and reward magnitudes), and the non-stationary nature of 
+financial time series, a normalization strategy is required. For this purpose, a rolling 
+window normalization wrapper is applied both to observations and (optionally) rewards.
+
+The \texttt{RollingWindowNorm} wrapper maintains a fixed-size buffer over the most recent 
+observations and rewards and computes online estimates of mean and variance. Each input is
+normalized as:
+
+\[
+\hat{x}_t = \frac{x_t - \mu_t}{\sigma_t + \epsilon}
+\]
+
+where $\mu_t$ and $\sigma_t$ are computed over a sliding window of past values. This 
+approach ensures that normalization adapts over time, which is crucial in non-stationary 
+financial environments where data distributions shift across regimes.
+
+In practice, this normalization improves training stability by preventing dominance of 
+high-magnitude features and aligning the scale of portfolio, price, and indicator inputs.
+It also helps mitigate the distribution shift between training and testing periods, which 
+is particularly important for backtesting on unseen data.
+
+\section{Reinforcement Learning Algorithms}
+
+This work evaluates five standard Deep Reinforcement Learning algorithms, covering both 
+on-policy and off-policy families. The goal is to compare how different learning paradigms 
+behave under the same trading environment and feature representations.
+
+\subsection{On-Policy Methods}
+
+On-policy methods learn directly from data generated by the current policy, meaning that 
+the policy is continuously updated using fresh trajectories collected from interaction with 
+the environment. This typically leads to more stable learning dynamics, since the data 
+distribution closely matches the policy being optimized. However, this also reduces sample 
+efficiency, as past experiences cannot be reused.
+
+\begin{itemize}
+
+\item \textbf{Advantage Actor-Critic (A2C)} is a synchronous actor-critic algorithm that 
+jointly learns a policy function (actor) and a value function (critic). The critic estimates
+the expected return, while the actor updates the policy in the direction suggested by the 
+advantage signal. This reduces variance compared to pure policy gradient methods and leads
+to more stable updates. A2C performs updates based on multiple parallel environment steps, 
+aggregating experience before performing gradient updates.
+
+\item \textbf{Proximal Policy Optimization (PPO)} improves upon standard policy gradient 
+methods by constraining policy updates to avoid excessively large deviations between 
+successive policies. Instead of directly maximizing expected returns, PPO optimizes a 
+surrogate objective that penalizes large changes in the policy distribution. This results in a
+more robust and stable training process, particularly in environments with noisy or 
+non-stationary rewards such as financial markets.
+
+\end{itemize}
+
+\subsection{Off-Policy Methods}
+
+Off-policy methods learn from experiences stored in a replay buffer, allowing the agent 
+to reuse past transitions that were generated by previous versions of the policy or even 
+different exploration strategies. This significantly improves sample efficiency and enables
+more stable learning in environments where data collection is expensive or limited. However, 
+off-policy learning can be more sensitive to hyperparameter choices and function approximation 
+errors.
+
+\begin{itemize}
+
+\item \textbf{Deep Deterministic Policy Gradient (DDPG)} is an off-policy actor-critic 
+algorithm designed for continuous action spaces. It learns a deterministic policy and uses 
+a separate critic to estimate action-value functions. The use of a replay buffer allows the 
+algorithm to learn from past experiences, while exploration is typically introduced through 
+noise added to the actions during training. DDPG can be unstable in practice due to 
+overestimation bias and sensitivity to hyperparameters.
+
+\item \textbf{Twin Delayed DDPG (TD3)} addresses the instability of DDPG by introducing 
+several key improvements. It uses two independent critic networks to reduce overestimation 
+bias, delayed policy updates to stabilize learning, and smoothing of target actions to improve
+robustness. These modifications make TD3 significantly more stable and reliable in continuous 
+control tasks.
+
+\item \textbf{Soft Actor-Critic (SAC)} is an off-policy method that formulates reinforcement 
+learning as an entropy-regularized optimization problem. In addition to maximizing expected 
+return, SAC explicitly encourages exploration by maximizing policy entropy. This results in a
+stochastic policy that remains exploratory throughout training, making SAC particularly robust
+in complex and noisy environments such as financial markets.
+
+\end{itemize}
+
+On-policy methods such as A2C and PPO prioritize stability by learning from fresh data 
+but require more environment interactions. In contrast, off-policy methods such as DDPG, 
+TD3, and SAC improve sample efficiency by reusing past experiences stored in a replay 
+buffer, at the cost of increased sensitivity to hyperparameter tuning and potential instability.
+
+In all methods, the learning rate controls the magnitude of parameter updates, while 
+batch-related parameters determine the statistical quality of gradient estimates. 
+Exploration is explicitly regulated either through entropy regularization (on-policy
+methods and SAC) or implicitly through noise in deterministic policy methods (DDPG 
+and TD3). This combination of algorithms allows for a comprehensive evaluation of
+different DRL learning paradigms in financial trading environments.
+
+\end{document}
