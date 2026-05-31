@@ -8,9 +8,14 @@ various domains, including robotics, control systems, games, and financial tradi
 
 This work presents the development of a DRL framework for multi-asset trading in stock 
 and cryptocurrency markets. The framework supports the complete DRL pipeline, including 
-environment modeling, data preprocessing and normalization, policy network design, training 
-using algorithms such as PPO and A2C, and evaluation through backtesting on unseen data.
+environment modeling, data preprocessing and normalization, policy network design, and training 
+using algorithms such as PPO and A2C. To address rigid operational constraints and hyperparameter 
+sensitivity during this training process, we expand the pipeline by integrating a Mamdani-style 
+Fuzzy Inference System for continuous risk mitigation alongside an outer-loop Genetic Algorithm for 
+automated hyperparameter optimization. Finally, the framework handles model evaluation through 
+backtesting on unseen data.
 
 The objective of this project is to provide a modular framework for studying and evaluating 
 DRL methods in financial environments while enabling experimentation with different 
-architectures, policies, and training configurations.
+architectures, policies, and training configurations, thereby safeguarding portfolio capital 
+without degrading overall representation capacity.

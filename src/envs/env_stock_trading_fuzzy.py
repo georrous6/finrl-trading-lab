@@ -140,9 +140,10 @@ class StockTradingFuzzyEnv(gym.Env):
         # SYSTEM 2: Reward Shaper (Risk-Adjusted Deductions)
         # ----------------------------------------------------
         exposure = ctrl.Antecedent(np.linspace(0.0, 1.0, 11), "exposure")
-        vix = ctrl.Antecedent(
-            np.linspace(0.0, float(np.max(self.vix) + 1.0), 21), "vix"
-        )
+        vix_max = float(np.max(self.vix) + 1.0)
+        if vix_max < 35.0:
+            vix_max = 35.0
+        vix = ctrl.Antecedent(np.linspace(0.0, vix_max, 21), "vix")
         penalty = ctrl.Consequent(np.linspace(0.0, 1.0, 21), "penalty")
 
         exposure["low"] = fuzz.trimf(exposure.universe, [0.0, 0.0, 0.4])
@@ -150,7 +151,7 @@ class StockTradingFuzzyEnv(gym.Env):
 
         vix["calm"] = fuzz.trimf(vix.universe, [0.0, 0.0, 20.0])
         vix["stressed"] = fuzz.trimf(vix.universe, [15.0, 30.0, 45.0])
-        vix["panic"] = fuzz.smf(vix.universe, 35.0, np.max(self.vix) + 1.0)
+        vix["panic"] = fuzz.smf(vix.universe, 35.0, vix_max)
 
         penalty["none"] = fuzz.trimf(penalty.universe, [0.0, 0.0, 0.2])
         penalty["medium"] = fuzz.trimf(penalty.universe, [0.1, 0.5, 0.9])
