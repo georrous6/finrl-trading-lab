@@ -1,0 +1,719 @@
+\documentclass[10pt]{beamer}
+
+% ---------------- THEME ----------------
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+
+% ---------------- PACKAGES ----------------
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+% ---------------- TITLE ----------------
+\title[DRL Trading Framework]{Deep Reinforcement Learning for Multi-Asset Trading}
+\author{Rousomanis Georgios (10703)}
+\date{May 2026}
+
+\begin{document}
+
+% =====================================================
+\begin{frame}
+\titlepage
+\end{frame}
+
+% =====================================================
+\begin{frame}{Motivation}
+\begin{itemize}
+    \item Financial markets are sequential, stochastic, and non-stationary
+    \item Classical strategies struggle under regime shifts
+    \item DRL enables adaptive decision-making directly from data
+\end{itemize}
+\end{frame}
+
+% =====================================================
+\begin{frame}{System Overview}
+\begin{block}{Full Pipeline}
+\begin{itemize}
+    \item Custom multi-asset trading environments
+    \item Deep Reinforcement Learning agents
+    \item Temporal feature modeling (MLP, LSTM, Transformer)
+    \item Risk control (Fuzzy Logic)
+    \item Hyperparameter optimization (Genetic Algorithm)
+\end{itemize}
+\end{block}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Trading Environment}
+\begin{itemize}
+    \item Multi-asset portfolio (stocks + crypto)
+    \item Gymnasium-based sequential decision process
+    \item Observation contains:
+    \begin{itemize}
+        \item Portfolio state (cash + holdings)
+        \item Market state (prices + indicators)
+        \item Risk signals (VIX, turbulence for stocks)
+    \end{itemize}
+\end{itemize}
+
+\pause
+
+State representation:
+\[
+s_t = [s_t^{portfolio}, s_t^{market}]
+\]
+
+\pause
+
+Continuous action space:
+\[
+a_t \in [-1,1]^N
+\]
+
+\pause
+Reward:
+\[
+r_t = \log\left(\frac{V_{t+1} + \epsilon}{V_t + \epsilon}\right)
+ - \lambda e_t v_t
+\]
+\begin{itemize}
+    \item $e_t$: portfolio exposure
+    \item $v_t$: market volatility
+    \item $\lambda$: risk sensitivity coefficient
+\end{itemize}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Policy Architectures}
+\begin{itemize}
+    \item MLP (baseline)
+    \item LSTM (temporal memory)
+    \item Transformer (attention-based modeling)
+    \item Hybrid MLP--Transformer
+\end{itemize}
+
+\begin{block}{Key Challenge}
+Financial data requires modeling both:
+\begin{itemize}
+    \item temporal dependencies
+    \item cross-asset interactions
+\end{itemize}
+\end{block}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Transformer Feature Extractor}
+
+\textbf{Input Construction}
+
+\[
+X =
+[x_{t-T+1}, \dots, x_t]
+\]
+
+where each observation contains both portfolio and market information:
+
+\[
+x_t =
+[s_t^{portfolio}, s_t^{market}]
+\]
+
+\textbf{Architecture}
+
+\begin{itemize}
+    \item Sequence length: $T = 10$
+    \item Linear projection to $d_{model}=128$
+    \item Learnable positional embeddings
+    \item Transformer Encoder:
+    \begin{itemize}
+        \item 2 encoder layers
+        \item 4 attention heads
+        \item Feed-forward dimension 256
+        \item Dropout 0.1
+    \end{itemize}
+\end{itemize}
+
+Final representation:
+
+\[
+h_t = Transformer(X)_T
+\]
+
+The embedding $h_t$ is provided to the actor and critic networks.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Hybrid MLP--Transformer Architecture}
+
+\textbf{Motivation}
+
+Market observations exhibit temporal structure, while portfolio information
+represents an instantaneous allocation state.
+
+\pause
+\vspace{0.3cm}
+
+\textbf{Market Branch}
+
+\[
+X^{market}
+=
+[s^{market}_{t-T+1}, \dots, s^{market}_{t}]
+\]
+
+\[
+h_t = Transformer(X^{market})_T
+\]
+
+\pause
+\vspace{0.2cm}
+
+\textbf{Portfolio Branch}
+
+\[
+h_t^{portfolio}
+=
+MLP(s_t^{portfolio})
+\]
+
+\vspace{0.2cm}
+
+\textbf{Fusion}
+
+\[
+z_t =
+[h_t^{market}, h_t^{portfolio}]
+\]
+
+Concatenation followed by a projection layer before being passed to the actor
+and critic networks.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Data Processing}
+\begin{itemize}
+    \item Rolling window sequences (T = 10)
+    \item Online feature-wise normalization
+    \item Reward normalization via rolling statistics
+\end{itemize}
+
+\begin{block}{Why it matters}
+\begin{itemize}
+    \item Handles non-stationary distributions
+    \item Prevents scale dominance
+\end{itemize}
+\end{block}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Reinforcement Learning Algorithms}
+
+\begin{columns}[T]
+
+\column{0.48\textwidth}
+
+\textbf{On-Policy Methods}
+
+\vspace{0.2cm}
+
+\textbf{A2C}
+\begin{itemize}
+    \item Actor-Critic architecture
+    \item Uses advantage estimates to reduce variance
+    \item Stable but less sample efficient
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{PPO}
+\begin{itemize}
+    \item Clipped policy updates
+    \item Prevents large policy shifts
+    \item Widely used due to strong stability
+\end{itemize}
+
+\column{0.48\textwidth}
+
+\textbf{Off-Policy Methods}
+
+\vspace{0.2cm}
+
+\textbf{DDPG}
+\begin{itemize}
+    \item Deterministic actor-critic
+    \item Replay buffer for sample reuse
+    \item Designed for continuous actions
+\end{itemize}
+
+\vspace{0.1cm}
+
+\textbf{TD3}
+\begin{itemize}
+    \item Extension of DDPG
+    \item Twin critics reduce overestimation bias
+    \item Delayed policy updates improve stability
+\end{itemize}
+
+\vspace{0.1cm}
+
+\textbf{SAC}
+\begin{itemize}
+    \item Stochastic actor-Critic
+    \item Strong sample efficiency
+\end{itemize}
+
+\end{columns}
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Training Performance}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/rollout_ep_rew_mean.png}
+    \caption{Training reward evolution}
+\end{figure}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Financial Performance}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/financial_total_return.png}
+    \caption{Total return across models}
+\end{figure}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Risk-Adjusted Performance}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/financial_sharpe_ratio.png}
+    \caption{Sharpe ratio comparison}
+\end{figure}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Key Findings}
+\begin{itemize}
+    \item PPO $\rightarrow$ most stable learning behavior
+    \item DDPG (MLP) $\rightarrow$ strongest overall performance
+    \item Transformers $\rightarrow$ higher representation power, lower stability (off-policy)
+    \item LSTM $\rightarrow$ strong but unstable long-horizon behavior
+\end{itemize}
+\end{frame}
+
+% =====================================================
+\begin{frame}{Backtesting Evaluation}
+
+\begin{columns}
+
+\column{0.4\textwidth}
+
+\textbf{Evaluation Setup}
+
+\vspace{0.2cm}
+
+\begin{itemize}
+    \item Out-of-sample period:
+    \begin{itemize}
+        \item Jan 2026 -- Mar 2026
+    \end{itemize}
+
+    \item Dow Jones 30 constituents
+
+    \item Metrics:
+    \begin{itemize}
+        \item Total Return
+        \item Portfolio Value
+        \item Sharpe Ratio
+    \end{itemize}
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Selected Models}
+\begin{itemize}
+    \item DDPG (MLP)
+    \item PPO (Transformer)
+    \item PPO (Hybrid)
+\end{itemize}
+
+\column{0.6\textwidth}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{figures/backtest_total_return.png}
+    \caption{Out-of-sample total return.}
+\end{figure}
+
+\end{columns}
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Portfolio Value \& Risk-Adjusted Performance}
+
+\begin{columns}
+
+\column{0.5\textwidth}
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{figures/backtest_portfolio_value.png}
+    \caption{Portfolio value evolution}
+\end{figure}
+
+\column{0.5\textwidth}
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{figures/backtest_sharpe_ratio.png}
+    \caption{Sharpe ratio evolution}
+\end{figure}
+
+\end{columns}
+
+\vspace{0.2cm}
+
+\begin{block}{Key Observation}
+DDPG (MLP) maintains the strongest portfolio growth and the most
+consistent risk-adjusted performance during the out-of-sample period,
+while both Transformer-based PPO variants exhibit gradual degradation.
+\end{block}
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Fuzzy-Enhanced Risk Management}
+
+\textbf{Motivation}
+
+\vspace{0.2cm}
+
+The original environment relied on hard threshold-based controls:
+
+\[
+a_t' = \min(a_t,0)
+\]
+
+which completely blocked buying actions during periods of high market
+turbulence.
+
+\vspace{0.3cm}
+
+\textbf{Limitation}
+
+\begin{itemize}
+    \item Abrupt action suppression
+    \item Discontinuous behavior
+    \item Difficult learning dynamics
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Proposed Solution}
+
+A Mamdani Fuzzy Inference System composed of:
+
+\begin{enumerate}
+    \item Fuzzy Action Smoother
+    \item Fuzzy Reward Shaper
+\end{enumerate}
+
+Both components replace hard decisions with smooth, context-dependent
+risk adjustments.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Fuzzy Action Smoother}
+
+\textbf{Goal}
+
+Replace the hard turbulence constraint
+
+\[
+a_t'=\min(a_t,0)
+\]
+
+with a smooth risk-aware action adjustment mechanism.
+
+\vspace{0.3cm}
+
+\textbf{Inputs}
+
+\begin{itemize}
+    \item Raw Action ($a_i$):
+    \[
+    \{\text{Sell},\ \text{Hold},\ \text{Buy}\}
+    \]
+
+    \item Market Turbulence ($\tau_t$):
+    \[
+    \{\text{Low},\ \text{Medium},\ \text{High}\}
+    \]
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Output}
+
+\[
+a_{t,\text{safe}}
+\]
+
+Risk-adjusted trading action obtained through Mamdani inference and
+centroid defuzzification.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Fuzzy Action Smoother Rules}
+
+\begin{columns}[T]
+
+\column{0.42\textwidth}
+
+\textbf{Rule Base}
+
+\vspace{0.2cm}
+
+\begin{enumerate}
+    \item \textbf{IF} Turbulence is High\\
+          \textbf{THEN} Action is Sell
+
+    \vspace{0.2cm}
+
+    \item \textbf{IF} Turbulence is Medium\\
+          \textbf{AND} Action is Buy\\
+          \textbf{THEN} Action is Hold
+
+    \vspace{0.2cm}
+
+    \item \textbf{IF} Turbulence is Medium\\
+          \textbf{AND} Action is Sell\\
+          \textbf{THEN} Action is Sell
+
+    \vspace{0.2cm}
+
+    \item \textbf{IF} Turbulence is Low\\
+          \textbf{THEN} Action follows the original action
+\end{enumerate}
+
+\column{0.58\textwidth}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]
+    {figures/action_smoother_mfs.png}
+\end{figure}
+
+\end{columns}
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Fuzzy Reward Shaper}
+
+\textbf{Goal}
+
+Replace the fixed volatility penalty with a context-dependent fuzzy penalty.
+
+\vspace{0.3cm}
+
+Original reward:
+
+\[
+r_t=
+\log\left(
+\frac{V_{t+1}+\epsilon}
+     {V_t+\epsilon}
+\right)
+-\lambda e_t v_t
+\]
+
+\vspace{0.3cm}
+
+\textbf{Inputs}
+
+\begin{itemize}
+    \item Portfolio Exposure ($e_t$):
+    \[
+    \{\text{Low},\ \text{High}\}
+    \]
+
+    \item VIX Volatility ($v_t$):
+    \[
+    \{\text{Calm},\ \text{Stressed},\ \text{Panic}\}
+    \]
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{Output}
+
+\[
+\phi_t \in [0,1]
+\]
+
+Adaptive penalty factor.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Fuzzy Reward Shaper Rules}
+
+\begin{columns}[T]
+
+\column{0.42\textwidth}
+
+\textbf{Rule Base}
+
+\vspace{0.2cm}
+
+\begin{enumerate}
+    \item \textbf{IF} VIX is Panic\\
+          \textbf{AND} Exposure is High\\
+          \textbf{THEN} Penalty is Severe
+
+    \vspace{0.3cm}
+
+    \item \textbf{IF} VIX is Stressed\\
+          \textbf{AND} Exposure is High\\
+          \textbf{THEN} Penalty is Medium
+
+    \vspace{0.3cm}
+
+    \item \textbf{IF} VIX is Calm\\
+          \textbf{OR} Exposure is Low\\
+          \textbf{THEN} Penalty is None
+\end{enumerate}
+
+\vspace{0.3cm}
+
+\[
+r_t=
+\log\left(
+\frac{V_{t+1}+\epsilon}
+     {V_t+\epsilon}
+\right)
+-
+\phi_t\lambda_{scale}
+\]
+
+\column{0.58\textwidth}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]
+    {figures/reward_shaper_mfs.png}
+\end{figure}
+
+\end{columns}
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Genetic Algorithm Hyperparameter Optimization}
+
+\textbf{Motivation}
+
+\vspace{0.2cm}
+
+DRL performance is highly sensitive to hyperparameter selection.
+
+\vspace{0.2cm}
+
+Examples include: Learning rate, Batch size, Rollout length etc
+
+\vspace{0.3cm}
+
+\textbf{Chromosome Representation}
+
+Each hyperparameter configuration is encoded as a chromosome:
+
+\[
+C =
+[g_1,g_2,\dots,g_n]
+\]
+
+where each gene corresponds to a specific hyperparameter.
+
+\vspace{0.3cm}
+
+\textbf{Fitness Function}
+
+\[
+Fitness = \text{Final Portfolio Value}
+\]
+
+obtained after training and evaluating the corresponding DRL agent.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Genetic Algorithm Evolution Cycle}
+
+\textbf{Evolutionary Process}
+
+\begin{enumerate}
+    \item Generate an initial population of random chromosomes
+    \item Train and evaluate each DRL agent
+    \item Compute fitness using the final portfolio value
+    \item Select the highest-performing individuals
+    \item Apply crossover to generate offspring
+    \item Apply mutation to maintain diversity
+    \item Form the next generation and repeat
+\end{enumerate}
+
+\vspace{0.4cm}
+
+\textbf{Genetic Operators}
+
+\begin{itemize}
+    \item \textbf{Selection}: favors high-fitness chromosomes
+    \item \textbf{Elitism}: preserves the best solution unchanged
+    \item \textbf{Uniform Crossover}: combines genes from two parents
+    \item \textbf{Mutation}: randomly modifies genes to explore new regions
+\end{itemize}
+
+\vspace{0.2cm}
+
+The cycle is repeated for multiple generations until the best
+hyperparameter configuration is identified.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}[plain]
+
+\begin{center}
+
+\vspace{1cm}
+
+{\Large \textbf{Thank You}}
+
+\vspace{0.7cm}
+
+{\large Questions?}
+
+\vspace{1.2cm}
+
+\textbf{Project Repository}
+
+\vspace{0.2cm}
+
+\url{https://github.com/georrous6/finrl-trading-lab}
+
+\vfill
+
+\small
+Deep Reinforcement Learning Framework for Multi-Asset Trading
+
+\end{center}
+
+\end{frame}
+
+\end{document}
