@@ -28,6 +28,7 @@ class StockTradingEnv(gym.Env):
         volatility_penalty: float = 0.0,
         turbulence_threshold: Optional[float] = None,
         eps: float = 1e-8,
+        **kwargs,
     ):
         super().__init__()
 

@@ -32,8 +32,18 @@ negative returns over the evaluation period. In contrast, DDPG (MLP), which
 also achieved the strongest training stability, demonstrated the best 
 out-of-sample performance with consistently positive returns.
 
+To address these performance gaps, the implementation of a Mamdani-style fuzzy 
+logic layer successfully replaced rigid, threshold-based constraints with smooth 
+action adjustments and context-dependent risk penalties. Concurrently, the 
+integration of a Genetic Algorithm provided an efficient evolutionary search 
+mechanism to systematically discover robust hyperparameter configurations within 
+highly non-linear training dynamics.
+
 Overall, the results indicate a clear trade-off between expressiveness and 
 stability. MLP-based policies provide the most robust and reliable performance, 
 Transformer architectures improve representation power but reduce stability 
 in off-policy settings, and recurrent architectures introduce additional 
-instability without consistent performance gains in this experimental setup.
+instability without consistent performance gains in this experimental setup. 
+However, by augmenting the core pipeline with layered fuzzy risk controls and genetic 
+optimization, the framework establishes a stabilized training track that effectively 
+safeguards portfolio capital without sacrificing architectural expressiveness.

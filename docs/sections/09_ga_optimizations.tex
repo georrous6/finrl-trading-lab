@@ -1,0 +1,67 @@
+\section{Genetic Algorithm Hyperparameter Optimization}
+
+The performance of Deep Reinforcement Learning algorithms is strongly
+influenced by the choice of hyperparameters. Parameters such as learning
+rate, rollout length, batch size, discount factor, replay buffer size, and
+entropy regularization directly affect training stability, convergence speed,
+and final trading performance. To automate the hyperparameter selection
+process, a \textbf{Genetic Algorithm (GA)} was employed as an evolutionary
+optimization method.
+
+In the proposed formulation, each candidate hyperparameter configuration is
+represented as a \textbf{chromosome}. A chromosome consists of multiple
+\textbf{genes}, where each gene corresponds to a specific hyperparameter.
+For example, a PPO chromosome contains genes representing the learning rate,
+rollout length, batch size, discount factor, generalized advantage estimation
+parameter, entropy coefficient, and clipping range. Similarly, chromosomes for
+off-policy algorithms such as DDPG, TD3, and SAC contain genes describing
+replay buffer sizes, target network update parameters, and other
+algorithm-specific hyperparameters.
+
+The optimization process begins by generating an initial
+\textbf{population} of chromosomes through random sampling of the predefined
+search space. Each chromosome is then evaluated by training a DRL agent using
+the corresponding hyperparameter configuration for a fixed number of
+timesteps. After training, the resulting agent is evaluated in the trading
+environment, and its performance is used to compute a \textbf{fitness}
+score. In this work, the fitness function is based on the final portfolio
+value achieved during evaluation, providing a direct measure of trading
+performance.
+
+Following fitness evaluation, the population is ranked according to fitness
+score and a \textbf{selection} process is applied. Selection determines which
+chromosomes are allowed to contribute genetic material to the next generation,
+favoring individuals with higher fitness while discarding poorly performing
+solutions. In the proposed implementation, selection is performed through an
+elite-based strategy in which the highest-ranking chromosomes form a candidate
+pool for reproduction.
+
+The strongest individuals are additionally preserved through
+\textbf{elitism}, ensuring that the best solutions discovered so far are
+carried unchanged into the next generation. New chromosomes are subsequently
+generated through \textbf{crossover} and \textbf{mutation} operations.
+
+The crossover operator combines genes from two parent chromosomes to produce
+offspring that inherit characteristics from both solutions. More specifically,
+a uniform crossover strategy is employed, where each gene is independently
+inherited from either parent with equal probability. This allows successful
+hyperparameter combinations to propagate throughout the population. Mutation
+introduces random modifications to individual genes with a predefined
+probability, increasing genetic diversity and enabling the search process to
+explore previously unseen regions of the hyperparameter space.
+
+The cycle of evaluation, selection, crossover, and mutation is repeated over
+multiple \textbf{generations}. As evolution progresses, poorly performing
+configurations are gradually eliminated, while high-fitness chromosomes become
+increasingly dominant within the population. The best chromosome encountered
+during the evolutionary process is selected as the final hyperparameter
+configuration for the corresponding DRL algorithm.
+
+Compared to manual tuning or exhaustive grid search, the Genetic Algorithm
+provides a population-based search strategy capable of efficiently exploring
+high-dimensional and highly non-linear hyperparameter spaces. By balancing
+exploration through mutation and exploitation through selection and elitism,
+the GA is able to discover competitive hyperparameter configurations while
+requiring substantially fewer evaluations than exhaustive search methods,
+making it particularly suitable for computationally expensive financial
+reinforcement learning environments.

@@ -21,6 +21,12 @@ def build_parser() -> ArgumentParser:
         default="stock",
     )
     parser.add_argument(
+        "--use-fuzzy",
+        dest="use_fuzzy",
+        help="whether to use the fuzzy-enhanced environment",
+        action="store_true",
+    )
+    parser.add_argument(
         "--model-name",
         dest="model_name",
         help="model name, a2c, ppo, ddpg, td3, sac, recurrent_ppo",

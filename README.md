@@ -17,6 +17,7 @@ This repo is based on
 - [Training](#training-instructions)
 - [Backtesting](#testing-instructions)
 - [Paper Trading](#paper-trading)
+- [Genetic Algorithm Training](#genetic-algorithm-training)
 
 ## Project Structure
 
@@ -89,6 +90,38 @@ PYTHONPATH=src python3 src/train.py \
 
 >Note:`--policy-name` and `--model-name` should be a 
 valid combination from above.
+
+## Genetic Algorithm Training
+
+Evolve SB3 hyperparameters with a lightweight GA loop that reuses the
+existing environment and policy pipeline.
+
+```bash
+PYTHONPATH=src python3 src/train.py \
+	--trainer=ga \
+	--model-name=ppo \
+	--policy-name=TransformerPolicy \
+	--asset-type=stock \
+	--ga-population=8 \
+	--ga-generations=5 \
+	--ga-elite=0.25 \
+	--ga-mutation-rate=0.3 \
+	--ga-train-timesteps=10000 \
+	--ga-eval-episodes=1 \
+	--ga-workers=4
+```
+
+Or run the helper script:
+
+```bash
+bash scripts/ga_train.sh
+```
+
+Smoke test with a tiny GA run:
+
+```bash
+PYTHONPATH=src python3 scripts/ga_hparam_smoke.py --model-name=ppo --policy-name=TransformerPolicy
+```
 
 ## Backtesting
 
