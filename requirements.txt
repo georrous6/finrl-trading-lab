@@ -9,6 +9,8 @@ pandas>=1.1.5
 stable-baselines3[extra]
 sb3-contrib
 stockstats>=0.4.0
+scikit-fuzzy
+scipy
 
 tensorboard
 matplotlib

@@ -7,6 +7,7 @@ from agents.drl_agent import DRLAgent
 from configs import config
 from envs.env_crypto_trading import CryptoTradingEnv
 from envs.env_stock_trading import StockTradingEnv
+from envs.env_stock_trading_fuzzy import StockTradingFuzzyEnv
 from envs.assembly import make_env
 from policies.factory import make_policy
 from configs.config_tickers import (CRYPTO_TICKERS, 
@@ -59,7 +60,10 @@ def main() -> int:
         env_params = config.CRYPTO_TRADING_ENV_PARAMS
     else:  # stock
         ticker_list = STOCK_TICKERS
-        env_cls = StockTradingEnv
+        if options.use_fuzzy:
+            env_cls = StockTradingFuzzyEnv
+        else:
+            env_cls = StockTradingEnv
         data_params = config.STOCK_DATA_PARAMS
         env_params = config.STOCK_TRADING_ENV_PARAMS
 
