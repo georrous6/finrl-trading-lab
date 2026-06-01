@@ -23,25 +23,42 @@
 \end{frame}
 
 % =====================================================
-\begin{frame}{Motivation}
+\begin{frame}{Assignment 1: Deep Reinforcement Learning for Trading}
+
+\textbf{Motivation}
+
+\vspace{0.2cm}
+
 \begin{itemize}
     \item Financial markets are sequential, stochastic, and non-stationary
-    \item Classical strategies struggle under regime shifts
-    \item DRL enables adaptive decision-making directly from data
+    \item Traditional trading strategies struggle under regime shifts
+    \item Deep Reinforcement Learning enables adaptive decision-making directly from market data
 \end{itemize}
-\end{frame}
 
-% =====================================================
-\begin{frame}{System Overview}
-\begin{block}{Full Pipeline}
+\vspace{0.4cm}
+
+\textbf{Developed Framework}
+
+\vspace{0.2cm}
+
+\begin{block}{End-to-End Trading Pipeline}
 \begin{itemize}
     \item Custom multi-asset trading environments
     \item Deep Reinforcement Learning agents
-    \item Temporal feature modeling (MLP, LSTM, Transformer)
-    \item Risk control (Fuzzy Logic)
-    \item Hyperparameter optimization (Genetic Algorithm)
+    \item Temporal feature extractors (MLP, LSTM, Transformer)
+    \item Fuzzy Logic-based risk management
+    \item Genetic Algorithm hyperparameter optimization
 \end{itemize}
 \end{block}
+
+\vspace{0.2cm}
+
+\begin{center}
+\small
+Goal: Develop and evaluate an intelligent trading framework capable of
+learning profitable and risk-aware portfolio management policies.
+\end{center}
+
 \end{frame}
 
 % =====================================================
@@ -137,7 +154,7 @@ x_t =
 Final representation:
 
 \[
-h_t = Transformer(X)_T
+h_t = \mathrm{Transformer}(X)_T
 \]
 
 The embedding $h_t$ is provided to the actor and critic networks.
@@ -164,7 +181,7 @@ X^{market}
 \]
 
 \[
-h_t = Transformer(X^{market})_T
+h_t^{market} = \mathrm{Transformer}(X^{market})_T
 \]
 
 \pause
@@ -208,66 +225,6 @@ and critic networks.
 \end{block}
 \end{frame}
 
-% =====================================================
-\begin{frame}{Reinforcement Learning Algorithms}
-
-\begin{columns}[T]
-
-\column{0.48\textwidth}
-
-\textbf{On-Policy Methods}
-
-\vspace{0.2cm}
-
-\textbf{A2C}
-\begin{itemize}
-    \item Actor-Critic architecture
-    \item Uses advantage estimates to reduce variance
-    \item Stable but less sample efficient
-\end{itemize}
-
-\vspace{0.2cm}
-
-\textbf{PPO}
-\begin{itemize}
-    \item Clipped policy updates
-    \item Prevents large policy shifts
-    \item Widely used due to strong stability
-\end{itemize}
-
-\column{0.48\textwidth}
-
-\textbf{Off-Policy Methods}
-
-\vspace{0.2cm}
-
-\textbf{DDPG}
-\begin{itemize}
-    \item Deterministic actor-critic
-    \item Replay buffer for sample reuse
-    \item Designed for continuous actions
-\end{itemize}
-
-\vspace{0.1cm}
-
-\textbf{TD3}
-\begin{itemize}
-    \item Extension of DDPG
-    \item Twin critics reduce overestimation bias
-    \item Delayed policy updates improve stability
-\end{itemize}
-
-\vspace{0.1cm}
-
-\textbf{SAC}
-\begin{itemize}
-    \item Stochastic actor-Critic
-    \item Strong sample efficiency
-\end{itemize}
-
-\end{columns}
-
-\end{frame}
 
 % =====================================================
 \begin{frame}{Training Performance}
@@ -289,22 +246,35 @@ and critic networks.
 
 % =====================================================
 \begin{frame}{Risk-Adjusted Performance}
+
+\begin{columns}[T]
+
+\column{0.42\textwidth}
+
+\textbf{Key Findings}
+
+\vspace{0.3cm}
+
+\begin{itemize}
+\item PPO: most stable learning behavior
+\item DDPG (MLP): strongest overall performance
+\item Transformers: higher representation power but lower stability in off-policy settings
+\item LSTM: strong performance with unstable long-horizon behavior
+\end{itemize}
+
+\column{0.58\textwidth}
+
 \begin{figure}
-    \centering
-    \includegraphics[width=0.9\linewidth]{figures/financial_sharpe_ratio.png}
-    \caption{Sharpe ratio comparison}
+\centering
+\includegraphics[width=\linewidth]{figures/financial_sharpe_ratio.png}
+\caption{Sharpe ratio comparison}
 \end{figure}
+
+\end{columns}
+
 \end{frame}
 
-% =====================================================
-\begin{frame}{Key Findings}
-\begin{itemize}
-    \item PPO $\rightarrow$ most stable learning behavior
-    \item DDPG (MLP) $\rightarrow$ strongest overall performance
-    \item Transformers $\rightarrow$ higher representation power, lower stability (off-policy)
-    \item LSTM $\rightarrow$ strong but unstable long-horizon behavior
-\end{itemize}
-\end{frame}
+
 
 % =====================================================
 \begin{frame}{Backtesting Evaluation}
@@ -472,47 +442,25 @@ centroid defuzzification.
 % =====================================================
 \begin{frame}{Fuzzy Action Smoother Rules}
 
-\begin{columns}[T]
-
-\column{0.42\textwidth}
-
-\textbf{Rule Base}
+\begin{figure}
+\centering
+\includegraphics[width=0.8\linewidth]
+{figures/action_smoother_mfs.png}
+\end{figure}
 
 \vspace{0.2cm}
 
+\textbf{Rule Base}
+
 \begin{enumerate}
-    \item \textbf{IF} Turbulence is High\\
-          \textbf{THEN} Action is Sell
-
-    \vspace{0.2cm}
-
-    \item \textbf{IF} Turbulence is Medium\\
-          \textbf{AND} Action is Buy\\
-          \textbf{THEN} Action is Hold
-
-    \vspace{0.2cm}
-
-    \item \textbf{IF} Turbulence is Medium\\
-          \textbf{AND} Action is Sell\\
-          \textbf{THEN} Action is Sell
-
-    \vspace{0.2cm}
-
-    \item \textbf{IF} Turbulence is Low\\
-          \textbf{THEN} Action follows the original action
+\item \textbf{IF} Turbulence is High \textbf{THEN} Action is Sell
+\item \textbf{IF} Turbulence is Medium \textbf{AND} Action is Buy \textbf{THEN} Action is Hold
+\item \textbf{IF} Turbulence is Medium \textbf{AND} Action is Sell \textbf{THEN} Action is Sell
+\item \textbf{IF} Turbulence is Low \textbf{THEN} Action follows the original action
 \end{enumerate}
 
-\column{0.58\textwidth}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\linewidth]
-    {figures/action_smoother_mfs.png}
-\end{figure}
-
-\end{columns}
-
 \end{frame}
+
 
 % =====================================================
 \begin{frame}{Fuzzy Reward Shaper}
@@ -565,33 +513,23 @@ Adaptive penalty factor.
 % =====================================================
 \begin{frame}{Fuzzy Reward Shaper Rules}
 
-\begin{columns}[T]
-
-\column{0.42\textwidth}
-
-\textbf{Rule Base}
+\begin{figure}
+\centering
+\includegraphics[width=0.8\linewidth]
+{figures/reward_shaper_mfs.png}
+\end{figure}
 
 \vspace{0.2cm}
 
+\textbf{Rule Base}
+
 \begin{enumerate}
-    \item \textbf{IF} VIX is Panic\\
-          \textbf{AND} Exposure is High\\
-          \textbf{THEN} Penalty is Severe
-
-    \vspace{0.3cm}
-
-    \item \textbf{IF} VIX is Stressed\\
-          \textbf{AND} Exposure is High\\
-          \textbf{THEN} Penalty is Medium
-
-    \vspace{0.3cm}
-
-    \item \textbf{IF} VIX is Calm\\
-          \textbf{OR} Exposure is Low\\
-          \textbf{THEN} Penalty is None
+\item \textbf{IF} VIX is Panic \textbf{AND} Exposure is High \textbf{THEN} Penalty is Severe
+\item \textbf{IF} VIX is Stressed \textbf{AND} Exposure is High \textbf{THEN} Penalty is Medium
+\item \textbf{IF} VIX is Calm \textbf{OR} Exposure is Low \textbf{THEN} Penalty is None
 \end{enumerate}
 
-\vspace{0.3cm}
+\vspace{0.2cm}
 
 \[
 r_t=
@@ -599,21 +537,11 @@ r_t=
 \frac{V_{t+1}+\epsilon}
      {V_t+\epsilon}
 \right)
--
-\phi_t\lambda_{scale}
+-\phi_t\lambda_{\text{scale}}
 \]
 
-\column{0.58\textwidth}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\linewidth]
-    {figures/reward_shaper_mfs.png}
-\end{figure}
-
-\end{columns}
-
 \end{frame}
+
 
 % =====================================================
 \begin{frame}{Genetic Algorithm Hyperparameter Optimization}
@@ -683,6 +611,134 @@ obtained after training and evaluating the corresponding DRL agent.
 
 The cycle is repeated for multiple generations until the best
 hyperparameter configuration is identified.
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Assignment 2: Fuzzy Irrigation Control for a Greenhouse}
+
+\begin{columns}[T]
+
+\column{0.52\textwidth}
+
+\textbf{Objective}
+
+Regulate greenhouse soil moisture $m$ toward a desired target $m^*$ while
+adapting irrigation to changing temperature conditions.
+
+\vspace{0.2cm}
+
+\textbf{Fuzzy Controller}
+
+\begin{itemize}
+    \item Inputs:
+    \begin{itemize}
+        \item Moisture error $e = m^* - m$
+        \item Temperature $T$
+    \end{itemize}
+
+    \item Output:
+    \[
+    \Delta v
+    \]
+    (valve opening adjustment)
+
+    \item Mamdani inference
+    \item Max aggregation
+    \item Centroid defuzzification
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{Controller Improvements}
+
+\begin{itemize}
+    \item Extended rule base with temperature awareness
+    \item Larger corrections for high temperatures
+    \item Milder corrections for low temperatures
+    \item Tuned membership functions:
+    \begin{itemize}
+        \item narrower ZE region
+        \item improved temperature partitions
+    \end{itemize}
+\end{itemize}
+
+\column{0.48\textwidth}
+
+\textbf{Evaluation}
+
+Three initial moisture levels:
+
+\[
+m_0 \in \{0.20, 0.35, 0.50\}
+\]
+
+\vspace{0.3cm}
+
+\textbf{Key Results}
+
+\begin{itemize}
+    \item Baseline controller converged to target moisture but ignored temperature effects
+    \item Temperature-aware rule base improved adaptation to evaporation changes
+    \item Modified membership functions reduced overshoot
+    \item Smoother valve operation
+    \item Faster convergence for low initial moisture
+\end{itemize}
+
+\vspace{0.4cm}
+
+\begin{block}{Conclusion}
+Fuzzy logic successfully maintained target soil moisture under varying
+environmental conditions while providing smooth and interpretable control.
+\end{block}
+
+\end{columns}
+
+\end{frame}
+
+% =====================================================
+\begin{frame}{Assignment 3: Genetic Algorithms for the TSP}
+
+\begin{columns}[T]
+
+\column{0.52\textwidth}
+
+\textbf{Core Objective}
+
+Minimize cyclic Euclidean distance visiting all cities exactly once:
+\[
+f(\pi)=\sum_{i=1}^{N}d(\pi_{i},\pi_{i+1}), \quad \text{with } \pi_{N+1}=\pi_{1}
+\]
+
+\vspace{0.1cm}
+
+\textbf{Chromosome \& Operators}
+
+\begin{itemize}
+    \item \textbf{Representation}: $(\text{route}, \sigma)$ with self-adaptive mutation intensity $\sigma$.
+    \item \textbf{Crossover}: Linear parent gene combination:
+    $\text{child} = \gamma P_1 + (1-\gamma)P_2$.
+    \item \textbf{Mutation}: Position swap along route, paired with stochastic updates:
+    $\sigma \leftarrow \sigma + \mathcal{N}(0,\,\cdot\,)$
+\end{itemize}
+
+\column{0.48\textwidth}
+
+\textbf{Selection Strategies \& Dynamics}
+
+\begin{itemize}
+    \item \textbf{Random}: Uniform choice; maximizes genetic diversity but lacks exploitation.
+    \item \textbf{Roulette}: Probability proportional to fitness; yields the most geometrically consistent paths.
+    \item \textbf{Tournament}: Extracts the best of a random subset; drives aggressive selection pressure and fast convergence.
+\end{itemize}
+
+\vspace{0.1cm}
+
+\textbf{Key Takeaway}
+
+Selection pressure (Roulette/Tournament) optimizes the exploration-exploitation 
+balance, outperforming random baselines.
+\end{columns}
 
 \end{frame}
 
